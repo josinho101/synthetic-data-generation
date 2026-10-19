@@ -1,0 +1,69 @@
+# -----------------------------------------------------------------------------
+# Runtime, environment and USD export settings.
+# -----------------------------------------------------------------------------
+output_root: /home/gehc-1/Joseph/SandBox/synthetic-data-generation/output   # each run -> <output_root>/run-<timestamp>/
+run_dir_format: "run-%Y%m%d-%H%M%S"
+
+# Environment requirements (checked by the preflight)
+blender_bin: /snap/bin/blender
+min_python: "3.10"
+min_blender: "4.2.0"
+tested_blender: "5.2"
+min_mpfb: "2.0.18"
+mpfb_module: auto               # auto | e.g. bl_ext.blender_org.mpfb
+mpfb_data_dir: auto             # auto | path to MPFB's "data" directory
+
+# Asset packs (skins, eyes, hair, clothes) are optional:
+#   auto     : use installed packs, fall back to generated/procedural assets with a WARNING
+#   required : preflight fails when no MakeHuman system assets are installed
+asset_mode: auto
+
+# MakeHuman asset packs installed by scripts/install_asset_packs.py into MPFB's user data dir
+# (hair, eyebrows, eyelashes, skins and the garments used by clothing.yaml).
+install_missing_packs: false     # true: every run downloads + installs missing packs (same as --install-packs)
+asset_packs_download_dir: ~/.cache/sdg_asset_packs   # downloaded zips are kept here (re-install without download)
+asset_packs_target: auto        # auto = MPFB user data dir; or an explicit path
+asset_packs_url: "https://files2.makehumancommunity.org/asset_packs"
+asset_packs:
+  - {name: makehuman_system_assets, file: makehuman_system_assets_cc0.zip, license: CC0}
+  - {name: shirts01, file: shirts01_cc0.zip, license: CC0}
+  - {name: shirts02, file: shirts02_ccby.zip, license: CC-BY}
+  - {name: pants01, file: pants01_cc0.zip, license: CC0}
+  - {name: pants02, file: pants02_ccby.zip, license: CC-BY}
+  - {name: skirts01, file: skirts01_cc0.zip, license: CC0}
+  - {name: shoes02, file: shoes02_ccby.zip, license: CC-BY}
+
+workers: 1                      # parallel Blender processes (this machine has 2 CPU cores)
+timeout_s_per_human: 1200
+retries: 1
+est_mb_per_human: 60            # used for the free-disk check
+
+usd:
+  file_format: usd              # usd (binary crate) | usda (text) | usdc
+  meters_per_unit: 1.0
+  up_axis: Z
+  triangulate: false
+  max_bone_influences: 4
+  export_textures: true
+  relative_paths: true
+
+preview:
+  resolution: [512, 768]        # per view; front + left side are placed next to each other
+  engines: [BLENDER_EEVEE, BLENDER_EEVEE_NEXT, BLENDER_WORKBENCH]   # first available wins
+  background_rgb: "#d9dde3"
+  samples: 16                   # EEVEE render samples (speed vs. quality)
+  landmark_overlay: true        # also write <id>_landmarks.png (landmark dots on the preview, for QA)
+
+# Animated Isaac Sim scene per human (<id>_anim.usda next to <id>.usd), see isaac/README.md:
+# idle -> walk -> idle -> jump -> turn + walk back -> turn -> idle
+animation:
+  enabled: true
+  fps: 30
+  walk_distance_m: 3.0
+  walk_speed_mps: 1.15
+  jump_height_m: 0.22
+
+bake:
+  device: auto                  # auto | GPU | CPU (Cycles texture bake)
+  samples: 4
+  margin_px: 8

@@ -1,0 +1,26 @@
+# -----------------------------------------------------------------------------
+# Anatomical skeleton: bone meshes generated per human from its rig joints, spine
+# landmarks and body surface, each skinned to its rig bone (moves with animation).
+# Exported in the USD as meshes "bone_<name>" under the SkelRoot.
+# -----------------------------------------------------------------------------
+enabled: true
+
+# Which groups to build (remove entries to skip them)
+parts: [skull, vertebrae, ribs, sternum, shoulder_girdle, pelvis, limbs, hands_feet]
+
+color_rgb: "#e3d8c3"            # bone material (UsdPreviewSurface)
+
+# Soft tissue between skin and bone (scaled with stature); ribs / sternum / scapulae use
+# max(soft_tissue_cm, soft_tissue_fraction x distance from the chest centre to the skin),
+# so heavier bodies get a thicker chest wall.
+soft_tissue_cm: 1.2
+soft_tissue_fraction: 0.08
+
+# Ribs 1..12: how much lower the front end is than the vertebra (cm, scaled with stature)
+rib_anterior_drop_cm: [3.0, 5.0, 7.0, 8.0, 9.0, 9.5, 9.5, 9.5, 9.0, 8.0, 6.0, 5.0]
+# Ribs 1..12: where the rib ends, as angle from the front midline (deg). Small = reaches
+# the sternum (true ribs 1-7), larger = false ribs 8-10 and floating ribs 11-12.
+rib_end_angle_deg: [14, 14, 14, 14, 14, 16, 20, 32, 42, 55, 85, 100]
+
+min_depth_below_skin_cm: 0.4    # every bone vertex is kept at least this far inside the skin
+preview: true                   # also write <id>_skeleton.png (bones only, front + side)

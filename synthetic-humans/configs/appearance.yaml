@@ -1,0 +1,102 @@
+# -----------------------------------------------------------------------------
+# Appearance: how humans LOOK (ethnic morphology, skin tone, face, eyes, hair).
+# -----------------------------------------------------------------------------
+
+# Each ethnicity listed in population.yaml must have a profile here.
+#  race_mix          : MPFB race macros (asian / caucasian / african), normalised to sum 1
+#  jitter            : +/- uniform noise added to each race component before normalising
+#  base_skin         : which MakeHuman system skin to use when asset packs are installed
+#  skin_tone_weights : Monk Skin Tone scale (1 = lightest ... 10 = darkest) -> relative weight
+ethnicity_profiles:
+  east_asian:
+    race_mix: {asian: 0.90, caucasian: 0.10, african: 0.00}
+    jitter: 0.05
+    base_skin: asian
+    skin_tone_weights: {2: 15, 3: 35, 4: 35, 5: 15}
+  south_asian:
+    race_mix: {asian: 0.45, caucasian: 0.35, african: 0.20}
+    jitter: 0.10
+    base_skin: asian
+    skin_tone_weights: {4: 20, 5: 35, 6: 30, 7: 15}
+  african:
+    race_mix: {asian: 0.00, caucasian: 0.05, african: 0.95}
+    jitter: 0.05
+    base_skin: african
+    skin_tone_weights: {7: 25, 8: 35, 9: 25, 10: 15}
+  caucasian:
+    race_mix: {asian: 0.00, caucasian: 0.95, african: 0.05}
+    jitter: 0.05
+    base_skin: caucasian
+    skin_tone_weights: {1: 25, 2: 35, 3: 30, 4: 10}
+  hispanic_latino:
+    race_mix: {asian: 0.20, caucasian: 0.55, african: 0.25}
+    jitter: 0.10
+    base_skin: caucasian
+    skin_tone_weights: {3: 25, 4: 35, 5: 25, 6: 15}
+
+# Monk Skin Tone reference colours (sRGB hex).
+skin_tones_rgb:
+  1: "#f6ede4"
+  2: "#f3e7db"
+  3: "#f7ead0"
+  4: "#eadaba"
+  5: "#d7bd96"
+  6: "#a07e56"
+  7: "#825c43"
+  8: "#604134"
+  9: "#3a312a"
+  10: "#292420"
+
+skin:
+  # layered : MPFB procedural layered skin (no asset pack needed), tinted by skin tone
+  # mhmat   : MakeHuman system skin textures (needs makehuman_system_assets), tinted by skin tone
+  # auto    : mhmat when the system assets are installed, otherwise layered
+  source: layered
+  tone_jitter: 0.04             # +/- relative brightness jitter so equal tones still differ
+  bake_resolution: 2048         # albedo texture size baked for USD
+  roughness: 0.45
+  age_variant: {young: [0, 39], middleage: [40, 64], old: [65, 200]}
+
+# Face detail targets (MPFB target.json sections). Per section:
+#   [min_picks, max_picks, deviation]; magnitude ~ U(0.25*deviation, deviation), random sign.
+face:
+  symmetric: true
+  sections:
+    nose:     [2, 4, 0.5]
+    chin:     [1, 2, 0.4]
+    eyes:     [2, 4, 0.4]
+    mouth:    [1, 3, 0.4]
+    ears:     [1, 2, 0.4]
+    cheek:    [1, 2, 0.4]
+    forehead: [0, 2, 0.3]
+    head:     [1, 2, 0.3]
+    eyebrows: [0, 2, 0.3]
+    neck:     [0, 1, 0.3]
+
+eyes:
+  source: generated             # generated (eye colour below is applied) | pack (MakeHuman eye mesh)
+  colors: {brown: 50, darkbrown: 20, hazel: 10, green: 7, blue: 10, grey: 3}
+  rgb:                          # used for generated eyes when no eye asset is installed
+    brown: "#5b3a1e"
+    darkbrown: "#2e1c0f"
+    hazel: "#8e7341"
+    green: "#4f7a4a"
+    blue: "#4a6f9c"
+    grey: "#7d8589"
+
+# Hair / eyebrows / eyelashes come from the MakeHuman system assets pack (installed with
+# scripts/install_asset_packs.py). Names are matched as substrings against installed MPFB
+# assets; "none" = no hair asset (bald). Hair and eyebrows are tinted with hair.rgb.
+hair:
+  male:   {styles: {short01: 25, short02: 25, short03: 15, short04: 20, afro01: 5, none: 10}}
+  female: {styles: {long01: 20, bob01: 20, bob02: 15, ponytail01: 20, braid01: 15, afro01: 10}}
+  colors: {black: 40, darkbrown: 25, brown: 15, blonde: 8, grey: 12}
+  rgb:
+    black: "#1c1714"
+    darkbrown: "#3b2619"
+    brown: "#6a4a30"
+    blonde: "#b8955f"
+    grey: "#a8a39d"
+  grey_from_age: 55             # above this age the chance of grey hair rises linearly to 100% at 85
+eyebrows: {pool: [eyebrow001, eyebrow002, eyebrow005, eyebrow006, eyebrow009, eyebrow010, eyebrow012]}
+eyelashes: {pool: [eyelashes01, eyelashes02, eyelashes03, eyelashes04]}
