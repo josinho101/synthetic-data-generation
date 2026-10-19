@@ -1,20 +1,36 @@
 # -----------------------------------------------------------------------------
-# Clothing variants. Each variant = percentage + slots.
-# A slot is either:
+# Clothing variants. Each variant = percentage + slots. Allowed garments: hospital gowns,
+# shirts, t-shirts, jeans and (women only) a knee-length office skirt. Which model, which colour
+# and which shoes is randomised per human (seeded, reproducible).
+#
+# A slot is one of:
 #   asset:     fixed MHCLO path (relative to the project's assets/ dir, or absolute)
 #   mpfb_slot: keyword pick from installed MPFB clothes packs, same semantics as
 #              MPFB's randomization clothes slots:
 #                chance (0-100), include_any, include_male, include_female, exclude, pack
 #              (comma separated, case-insensitive substrings of the asset name)
+#   male: {slot} / female: {slot}      a different slot per sex (a missing sex = no garment)
+#   one_of: [{weight: w, ...slot...}]  one alternative picked by weight
+# Optional on any slot:
+#   recolor: <palette>   new colour from garment_colors.<palette> (shading / detail kept)
 # -----------------------------------------------------------------------------
-# Footwear by sex (MPFB pack names). Professional outfits use formal shoes; gowns use
-# comfortable shoes / flats.
 _formal_shoes: &formal_shoes
   include_male: "mindfront_shoes_oxford_male,mindfront_shoes_monk_strap_male,callharvey3d_harvey_saddleshoes1"
   include_female: "mindfront_shoes_oxford_female,mindfront_shoes_monk_strap_female,dressupdoc_balletflat1,dressupdoc_maryjane1,elvs_flatshoe_plain1"
 _comfort_shoes: &comfort_shoes
   include_male: "punkduck_comfortable_sneakers,culturalibre_sneakers,punkduck_tennis_shoes"
   include_female: "dressupdoc_balletflat1,elvs_flatshoe_plain1,elvs_flatshoe_buckle_1,punkduck_comfortable_sneakers"
+
+# Garment groups (MPFB pack asset names)
+_shirts: &shirts                 # button-down shirts / polo; women also a blouse
+  include_male: "elvs_male_shirt_untucked_bd1,elvs_male_shirt_tie_tucked1,namuhekam_male_polo_shirt"
+  include_female: "elvs_male_shirt_untucked_bd1,namuhekam_male_polo_shirt,punkduck_lace_up_blouse"
+_tshirts: &tshirts               # plain t-shirts (no prints)
+  include_male: "elvs_crude_t-shirt_male,toigo_basic_tucked_t-shirt"
+  include_female: "joepal_crude_t-shirt_female,toigo_basic_tucked_t-shirt"
+_jeans: &jeans
+  include_male: "punkduck_male_classic_jeans,elvs_jeans_straight_leg,elvs_jeans_bootcut"
+  include_female: "punkduck_female_tight_jeans,elvs_jeans_straight_leg"
 
 variants:
   gown:                                     # generated hospital gown (knee length, short sleeve)
@@ -27,34 +43,64 @@ variants:
     slots:
       full_body: {asset: custom/hospital_gown/gown_long_sleeve.mhclo}
       feet:      {mpfb_slot: *comfort_shoes}
-  gown_with_pants:
+  gown_with_jeans:                          # short gown over jeans
     pct: 5
     slots:
       full_body:  {asset: custom/hospital_gown/gown_short.mhclo}
-      lower_body: {mpfb_slot: {include_male: "mindfront_male_trousers_1,toigo_wool_pants", include_female: "mindfront_female_trousers_1,toigo_wool_pants"}}
+      lower_body: {mpfb_slot: *jeans}
       feet:       {mpfb_slot: *comfort_shoes}
-  business:                                 # shirt / blouse + trousers or skirt + formal shoes
+  shirt:                                    # shirt + jeans (men); shirt + office skirt or jeans (women)
     pct: 35
     slots:
-      upper_body: {mpfb_slot: {include_male: "namuhekam_male_polo_shirt,elvs_male_shirt_untucked_bd1",
-                               include_female: "punkduck_lace_up_blouse,toigo_basic_tucked_t-shirt"}}
-      lower_body: {mpfb_slot: {include_male: "toigo_wool_pants,mindfront_male_trousers_1,mindfront_male_trousers_2",
-                               include_female: "toigo_skirt_with_lace_ruffle,toigo_long_full_skirt,mindfront_female_trousers_1,toigo_wool_pants"}}
-      feet:       {mpfb_slot: *formal_shoes}
-  suit:                                     # MakeHuman system suits (one full-body garment) + formal shoes
-    pct: 15
+      upper_body: {mpfb_slot: *shirts, recolor: shirt}
+      lower_body:
+        male:   {mpfb_slot: *jeans}
+        female:
+          one_of:
+            - {weight: 60, asset: custom/hospital_gown/office_skirt.mhclo, recolor: skirt}
+            - {weight: 40, mpfb_slot: *jeans}
+      feet: {mpfb_slot: *formal_shoes}
+  tshirt:                                   # t-shirt + jeans (women sometimes the office skirt)
+    pct: 25
     slots:
-      full_body: {mpfb_slot: {include_male: "male_elegantsuit01,male_casualsuit06",
-                              include_female: "female_elegantsuit01,female_casualsuit01,female_casualsuit02"}}
-      feet:      {mpfb_slot: *formal_shoes}
-  smart_casual:                             # sweater / cardigan + trousers or skirt + formal shoes
-    pct: 10
-    slots:
-      upper_body: {mpfb_slot: {include_male: "mindfront_knitted_sweater_01,namuhekam_male_polo_shirt",
-                               include_female: "mindfront_knitted_sweater_02,mindfront_cardigan_long_open_front"}}
-      lower_body: {mpfb_slot: {include_male: "mindfront_male_trousers_1,toigo_wool_pants",
-                               include_female: "toigo_skirt_with_lace_ruffle,mindfront_female_trousers_1,toigo_wool_pants"}}
-      feet:       {mpfb_slot: *formal_shoes}
+      upper_body: {mpfb_slot: *tshirts, recolor: tshirt}
+      lower_body:
+        male:   {mpfb_slot: *jeans}
+        female:
+          one_of:
+            - {weight: 75, mpfb_slot: *jeans}
+            - {weight: 25, asset: custom/hospital_gown/office_skirt.mhclo, recolor: skirt}
+      feet:
+        one_of:
+          - {weight: 60, mpfb_slot: *comfort_shoes}
+          - {weight: 40, mpfb_slot: *formal_shoes}
+
+# Colour palettes for `recolor` (sRGB). The garment texture's shading and details are kept.
+garment_colors:
+  shirt:
+    white:      {pct: 30, rgb: "#f2f1ec"}
+    light_blue: {pct: 25, rgb: "#b9cfe6"}
+    pale_pink:  {pct: 10, rgb: "#ecc9cc"}
+    grey:       {pct: 10, rgb: "#a9abae"}
+    navy:       {pct: 10, rgb: "#2b3a5c"}
+    lavender:   {pct: 5,  rgb: "#c9c0e0"}
+    black:      {pct: 10, rgb: "#2a2a2c"}
+  tshirt:
+    white:      {pct: 25, rgb: "#f0efea"}
+    black:      {pct: 20, rgb: "#262628"}
+    grey:       {pct: 15, rgb: "#9fa1a4"}
+    navy:       {pct: 15, rgb: "#27324f"}
+    red:        {pct: 8,  rgb: "#a8323a"}
+    green:      {pct: 7,  rgb: "#4b6b4f"}
+    yellow:     {pct: 5,  rgb: "#e2c35c"}
+    sky:        {pct: 5,  rgb: "#7fb2d9"}
+  skirt:
+    black:      {pct: 35, rgb: "#1f1f21"}
+    navy:       {pct: 20, rgb: "#26304a"}
+    charcoal:   {pct: 20, rgb: "#45474b"}
+    grey:       {pct: 10, rgb: "#8a8c90"}
+    beige:      {pct: 10, rgb: "#c7b49a"}
+    burgundy:   {pct: 5,  rgb: "#5e2430"}
 
 mpfb_packs: []                  # optional: only pick mpfb_slot assets from these pack names
 
@@ -81,8 +127,23 @@ gown_shaping:
 subdiv_levels: 0
 remove_hidden_body_faces: false # keep full body mesh under clothes (landmarks need the back surface)
 garment_texture_max_px: 1024   # MPFB garment colours are baked to textures of at most this size
+poke_through_clearance_cm: 0.3   # garment vertices closer than this to the skin are pushed out (no skin showing through)
+poke_through_max_edge_cm: 1.2    # garment edges near the skin are split to this length first (coarse garments on curved bodies)
 layer_offset_cm: 0.5            # outer garment of a top + bottom pair is pushed out by this (no poke-through)
 hide_body_under: [feet]         # body vertices inside these garments are removed at export (no feet poking through shoes)
+
+# Some shoe assets include a sock that is textured light grey (looks like a white patch above the
+# shoe). Its light, unsaturated pixels are recoloured to a sock colour (shading kept).
+# "nude" = the human's skin albedo, slightly darkened (sheer stockings).
+sock_recolor:
+  assets: [mindfront_shoes_oxford_male, mindfront_shoes_oxford_female,
+           mindfront_shoes_monk_strap_male, mindfront_shoes_monk_strap_female]
+  colors:
+    male:   {black: 45, navy: 25, charcoal: 30}
+    female: {black: 40, nude: 40, charcoal: 20}
+  rgb: {black: "#1b1b1d", navy: "#1f2638", charcoal: "#3a3b3e"}
+  max_saturation: 0.15            # pixels below this saturation ...
+  min_value: 0.55                 # ... and above this brightness are sock
 
 # What to do when a slot cannot be satisfied (missing file / no matching pack asset):
 #   skip_slot : log a WARNING and continue without that piece

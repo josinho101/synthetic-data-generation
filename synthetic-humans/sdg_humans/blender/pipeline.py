@@ -58,7 +58,8 @@ def run(args: dict) -> dict:
     with step("skin", timings):
         skin_info = skin.apply_skin(ns, basemesh, spec, cfg["appearance"], report)
     with step("bake", timings):
-        skin_info["texture"] = skin.bake_skin(basemesh, textures, hid, cfg["appearance"])
+        skin_info["texture"], skin_info["tone"] = skin.bake_skin(basemesh, textures, hid, cfg["appearance"],
+                                                                 spec["skin"].get("albedo_lab"))
     with step("rig", timings):
         armature = rig.add_default_rig(ns, basemesh)
     with step("body_parts", timings):
@@ -78,6 +79,9 @@ def run(args: dict) -> dict:
         with step("anatomy", timings):
             bones = anatomy.build_skeleton(basemesh, armature, lm_result, cfg["landmarks"]["spine"]["levels"],
                                            fit_result["height_cm"] / 100.0, cfg["anatomy"], hid)
+    with step("finalize", timings):   # before the preview, so the PNG shows exactly what is exported
+        usd_export.finalize_basemesh(ns, basemesh, [c["delete_group"] for c in clothing if c.get("hides_body")],
+                                     [bpy.data.objects[c["object"]] for c in clothing if c.get("hides_body")])
     with step("preview", timings):
         preview_path = preview.render_preview(human_dir / f"{hid}.png", fit_result["height_cm"] / 100.0,
                                               cfg["export"]["preview"], lm_result)
@@ -86,7 +90,6 @@ def run(args: dict) -> dict:
                                             cfg["export"]["preview"], bones)
     ext = cfg["export"]["usd"].get("file_format", "usd")
     with step("usd_export", timings):
-        usd_export.finalize_basemesh(ns, basemesh, [c["delete_group"] for c in clothing if c.get("hides_body")])
         usd_path = usd_export.export_usd(armature, human_dir / f"{hid}.{ext}", hid, cfg["export"]["usd"])
     skeleton_prim = f"/{hid}/{usd_export.usd_name(armature.name)}/{usd_export.usd_name(armature.name)}"
     for name, info in lm_result.items():

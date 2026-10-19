@@ -13,9 +13,11 @@ variants:
   gown_standard:    {length: knee,      sleeve: short, looseness_cm: 2.0, back_opening: true}
   gown_long_sleeve: {length: knee,      sleeve: elbow, looseness_cm: 2.0, back_opening: true}
   gown_short:       {length: mid_thigh, sleeve: short, looseness_cm: 2.0, back_opening: true}
+  # knee-length office (pencil) skirt for women: waist -> knee, straight fall below the hips
+  office_skirt:     {type: skirt, length: knee, looseness_cm: 0.8, waist_above_hip_cm: 10.0, taper_cm_per_m: 2.0}
 
 # Hem height as a fraction from the hip joint (0) to the knee joint (1)
-lengths: {mid_thigh: 0.5, knee: 1.0}
+lengths: {mid_thigh: 0.5, knee: 1.0, above_knee: 0.9}
 
 # --- upper shell (shoulders, neckline, sleeves) ---
 sleeve_ends: {short: 0.5, elbow: 1.0}      # fraction along the upper arm (shoulder joint 0 -> elbow 1)

@@ -11,7 +11,9 @@
 | `identity.ethnicity` | str | profile name |
 | `identity.race_mix` | {asian, caucasian, african} | MPFB race macros (sum 1) |
 | `identity.somatotype` | str | |
-| `identity.skin_tone_mst`, `identity.skin_rgb_hex` | int 1–10, str | Monk skin tone and the exact colour used |
+| `identity.skin_tone_mst`, `identity.skin_rgb_hex` | int 1–10, str | Monk skin tone and its reference (swatch) colour |
+| `identity.skin_albedo_hex` | str | skin albedo the texture was matched to (`skin_albedo_lab`, with jitter) |
+| `appearance.skin.source`, `.texture`, `.tone` | str, str, object | photo skin used (`mhmat:<file>` or `layered`), baked texture, and `tone.lab_before` / `lab_after` (median CIELAB of the skin texture) |
 | `identity.eye_color`, `identity.hair` | str, {style, color} | sampled (hair only rendered with asset packs) |
 | `identity.uniqueness_distance` | float | distance to the most similar earlier human |
 | `mpfb_macros` | dict | final MPFB macros incl. the solved `height` macro |
@@ -69,7 +71,7 @@ Example (abridged):
 ## 8.2 `population.csv`
 
 One row per built human: `id, status, sex, age_years, age_band, ethnicity, somatotype,
-skin_tone_mst, skin_rgb_hex, eye_color, clothing_variant, gown_color, target_height_cm, height_cm,
+skin_tone_mst, skin_rgb_hex, skin_albedo_hex, eye_color, clothing_variant, gown_color, target_height_cm, height_cm,
 weight_kg, bmi, fit_ok, ear_height_left_cm, ear_height_right_cm, eye_height_cm, c7_height_cm,
 shoulder_height_left_cm, jugular_notch_height_cm, xiphoid_height_cm, iliac_crest_height_cm,
 chest_width_cm, chest_ap_depth_cm, biacromial_width_cm, landmark_joints, usd, preview, warnings`.

@@ -110,15 +110,18 @@ def smooth_lower_weights(obj, bone_names: set, below_fraction: float, iterations
     return len(lower)
 
 
-def style_gown(obj, spec: dict, clothing: dict, mhclo_path: Path, textures_dir: Path, bone_names=None) -> None:
-    color = clothing["gown_colors"][spec["gown_color"]]
+def style_gown(obj, spec: dict, clothing: dict, mhclo_path: Path, textures_dir: Path, bone_names=None,
+               color: dict = None, label: str = "gown") -> None:
+    """Style a generated garment (hospital gown or office skirt). color defaults to the human's
+    gown colour; label names the material / texture (one per slot)."""
+    color = color or clothing["gown_colors"][spec["gown_color"]]
     asset_textures = mhclo_path.parent / "textures"
+    name = f"{spec['id']}_{'gown' if label == 'full_body' else label}"
     if (asset_textures / "stripes_mask.png").exists():
-        tex = fabric_texture(asset_textures, color, textures_dir / f"{spec['id']}_gown.png")
-        material = bake.simple_material(f"{spec['id']}_gown", image_path=tex, roughness=0.85)
+        tex = fabric_texture(asset_textures, color, textures_dir / f"{name}.png")
+        material = bake.simple_material(name, image_path=tex, roughness=0.85)
     else:
-        material = bake.simple_material(f"{spec['id']}_gown", color=colors.hex_to_linear_rgba(color["rgb"]),
-                                        roughness=0.85)
+        material = bake.simple_material(name, color=colors.hex_to_linear_rgba(color["rgb"]), roughness=0.85)
     bake.replace_materials(obj, material)
 
     shaping = clothing.get("gown_shaping") or {}

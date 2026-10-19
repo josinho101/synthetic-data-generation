@@ -71,9 +71,12 @@ somatotype:
 | `…jitter` | number | ± uniform noise per race component before normalising |
 | `…base_skin` | asian / caucasian / african | which MakeHuman system skin to use (packs only) |
 | `…skin_tone_weights` | {MST level: weight} | Monk Skin Tone levels (1 lightest … 10 darkest) and their relative weights |
-| `skin_tones_rgb` | {1..10: "#rrggbb"} | reference colour per Monk level |
-| `skin.source` | auto / layered / mhmat | `layered` = MPFB procedural skin (no packs); `mhmat` = system skin textures; `auto` = mhmat if installed |
-| `skin.tone_jitter` | number | ± relative brightness jitter so equal levels still differ |
+| `skin_tones_rgb` | {1..10: "#rrggbb"} | Monk reference colour per level (perceived colour; reported in metadata, **not** used as texture colour) |
+| `skin_albedo_lab` | {1..10: [L*, a*, b*]} | skin **albedo** per Monk level; the skin texture is matched to it (L* 71 for MST 1 … 28 for MST 10). Raise / lower L* to make a level lighter / darker |
+| `skin.source` | auto / layered / mhmat | `mhmat` = MakeHuman photo skins (realistic, needs packs); `layered` = MPFB procedural skin (flat, no packs); `auto` (default) = mhmat if installed |
+| `skin.dark_texture_from_mst` | int or null | Monk level from which the dark-skinned photo texture is used (7); null = always the ethnicity's `base_skin` |
+| `skin.tone_match_strength` | 0–1 | 1 = texture median matched exactly to `skin_albedo_lab`; 0 = raw photo colour |
+| `skin.tone_jitter` | number | ± relative lightness jitter (on L*) so equal levels still differ |
 | `skin.bake_resolution` | int | albedo texture size baked for USD (2048) |
 | `skin.roughness` | number | Principled roughness of the exported skin |
 | `skin.age_variant` | {young/middleage/old: [lo, hi] years} | selects the system skin by age |
@@ -114,6 +117,10 @@ ethnicity_profiles:
 | `variants.<name>.pct` | share of the population (exact quota) |
 | `variants.<name>.slots.<slot>.asset` | fixed MHCLO file (relative to `assets/` or absolute) |
 | `variants.<name>.slots.<slot>.mpfb_slot` | keyword pick from installed MPFB clothes: `chance` (0–100), `include_any`, `include_male`, `include_female`, `exclude`, `pack` (comma-separated, case-insensitive substrings). Same semantics as MPFB's own randomizer slots. |
+| `variants.<name>.slots.<slot>.male` / `.female` | a different slot per sex; a sex without an entry gets no garment in that slot (e.g. skirts only for women) |
+| `variants.<name>.slots.<slot>.one_of` | list of alternative slots with `weight`; one is picked per human |
+| `variants.<name>.slots.<slot>.recolor` | palette name in `garment_colors`; the garment gets a random colour from it (texture shading and details such as buttons are kept) |
+| `garment_colors.<palette>.<colour>` | `pct` (weight) and `rgb` (`#rrggbb`) |
 | `mpfb_packs` | restrict all `mpfb_slot` picks to these pack names |
 | `gown_colors.<name>` | `pct`, `rgb`, `pattern` (`stripes` = vertical `rgb` stripes on `base_rgb`; `solid` = whole gown `rgb`), `base_rgb` (background and sleeve trim) |
 | `gown_thickness_cm` | solidify thickness (double-sided look in Isaac Sim) |
@@ -126,14 +133,26 @@ ethnicity_profiles:
 | `fallback_variant` | variant used when a variant yields no garment at all (e.g. no clothes packs) |
 | `hide_body_under` | slots whose garment hides the body underneath (removed at export; default `[feet]`) |
 | `garment_texture_max_px` | resolution limit of baked garment textures |
+| `poke_through_clearance_cm` | garment vertices closer than this to the skin (or inside it) are pushed out after fitting, so no skin shows through tight clothes on full bodies; the body itself stays complete (0 = off) |
+| `poke_through_max_edge_cm` | garment edges near the skin are first split to this length, so coarse garments cannot cut through curved body parts between their vertices |
 | `layer_offset_cm` | the outer garment of a top + bottom pair is pushed out by this (trousers over tucked shirts, otherwise top over bottom) |
 | `gown_shaping.weight_smooth_iterations / weight_smooth_below` | blended skin weights on the lower gown (natural sway when animated) |
 
-Shipped variants: `gown` 25 %, `gown_long_sleeve` 10 %, `gown_with_pants` 5 %, `business` 35 %
-(shirt / blouse + trousers / skirt), `suit` 15 % (MakeHuman system suits), `smart_casual` 10 %
-(sweater / cardigan + trousers / skirt). All of them have footwear by sex: formal shoes (oxford,
-monk-strap, saddle shoes, ballet flats, Mary Janes) or comfortable shoes with gowns. YAML anchors
-`_formal_shoes` / `_comfort_shoes` keep the shoe lists in one place.
+Shipped variants (only gowns, shirts, t-shirts, jeans and, for women, a knee-length office skirt):
+
+| Variant | % | Upper | Lower | Shoes |
+|---|---|---|---|---|
+| `gown` | 25 | hospital gown, short sleeve | — | comfortable |
+| `gown_long_sleeve` | 10 | hospital gown, elbow sleeve | — | comfortable |
+| `gown_with_jeans` | 5 | short gown | jeans | comfortable |
+| `shirt` | 35 | shirt / polo (women also a blouse), recoloured from `garment_colors.shirt` | men: jeans; women: office skirt 60 % / jeans 40 % | formal |
+| `tshirt` | 25 | plain t-shirt, recoloured from `garment_colors.tshirt` | men: jeans; women: jeans 75 % / office skirt 25 % | comfortable 60 % / formal 40 % |
+
+The office skirt is generated (`gown.yaml → variants.office_skirt`, knee length, pencil cut) and
+coloured from `garment_colors.skirt`. Within each group the model is picked at random from the YAML
+anchors `_shirts`, `_tshirts`, `_jeans`, `_formal_shoes`, `_comfort_shoes`, which keep the asset
+lists in one place. The chosen garments and colours are recorded per human in
+`H0001.json → clothing.items` (`asset`, `color`).
 
 Add a variant (requires installed MPFB clothes packs):
 
@@ -154,7 +173,8 @@ variants:
 | `variants.<name>.length` / `.sleeve` | | keys of `lengths` / `sleeve_ends` |
 | `variants.<name>.looseness_cm` | 2.0 | clearance of shell and drape |
 | `variants.<name>.back_opening` | true | open back strip + ties |
-| `lengths` | mid_thigh 0.5, knee 1.0 | hem height as a fraction from the hip joint (0) to the knee joint (1) |
+| `lengths` | mid_thigh 0.5, knee 1.0, above_knee 0.9 | hem height as a fraction from the hip joint (0) to the knee joint (1) |
+| `variants.office_skirt` | `type: skirt` | knee-length pencil skirt: `length`, `looseness_cm` (0.8), `waist_above_hip_cm` (10, waistband height above the hip joints), `taper_cm_per_m` (2, narrowing towards the hem) |
 | `sleeve_ends` | short 0.5, elbow 1.0 | sleeve end as a fraction from the shoulder joint to the elbow joint |
 | `sleeve_widen_cm`, `sleeve_trim_fraction` | 2.0, 0.12 | sleeve opening width; part of the sleeve mapped to the white trim |
 | `neckline_drop_front_cm`, `neckline_drop_back_cm` | 4, 2 | round neckline below the neck joint |

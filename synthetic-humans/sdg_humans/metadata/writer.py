@@ -24,6 +24,7 @@ def build_metadata(spec: dict, run_id: str, build: dict, versions: dict) -> dict
             "somatotype": spec["somatotype"],
             "skin_tone_mst": spec["skin"]["tone_mst"],
             "skin_rgb_hex": spec["skin"]["rgb_hex"],
+            "skin_albedo_hex": spec["skin"].get("albedo_hex"),
             "eye_color": spec["eyes"]["color"],
             "hair": spec["hair"],
             "uniqueness_distance": spec.get("uniqueness_distance"),

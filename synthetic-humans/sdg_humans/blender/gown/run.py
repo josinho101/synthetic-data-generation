@@ -1,4 +1,4 @@
-"""Blender task: generate all configured gown variants as MPFB clothes assets.
+"""Blender task: generate all configured gown variants (and the office skirt) as MPFB clothes assets.
 
 Each gown = draped lower part (straight fall to the knee) + upper shell cut from the body's
 torso / upper-arm faces (shoulders, neckline, trimmed short sleeves) + back opening with ties,
@@ -11,7 +11,7 @@ from pathlib import Path
 import bpy
 
 from .. import bootstrap, geometry
-from . import body_parts, extras, mhclo_writer, texture
+from . import body_parts, extras, mhclo_writer, skirt, texture
 from .builder import MeshBuilder
 from .regions import dominant_bones
 
@@ -31,8 +31,11 @@ def _context(basemesh, armature) -> dict:
 
 def build_gown(ctx: dict, name: str, variant: dict, cfg: dict):
     builder = MeshBuilder()
-    info = body_parts.build_body(builder, ctx, variant, cfg)
-    extras.build_ties(builder, info, variant, cfg)
+    if variant.get("type") == "skirt":
+        info = skirt.build_skirt(builder, ctx, variant, cfg)
+    else:
+        info = body_parts.build_body(builder, ctx, variant, cfg)
+        extras.build_ties(builder, info, variant, cfg)
     _LOG.debug(f"{name}: hem z={info['hem_z']:.3f} top z={info['top_z']:.3f} {len(builder.faces)} quads")
     return builder.to_object(name)
 

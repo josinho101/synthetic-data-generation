@@ -6,6 +6,8 @@ from pathlib import Path
 
 import bmesh
 import bpy
+from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 _LOG = logging.getLogger("sdg_humans.blender.usd_export")
 
@@ -31,24 +33,60 @@ def _select(objects, active) -> None:
     bpy.context.view_layer.objects.active = active
 
 
-def finalize_basemesh(ns, basemesh, hide_groups=()) -> None:
-    """Bake shape keys, drop the masks and delete helper / joint-cube geometry, plus the body
-    vertices hidden by the delete groups in `hide_groups` (e.g. feet inside shoes)."""
+_INSIDE_RAYS = [Vector(d) for d in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, -1))]
+
+
+def _cover_bvh(objects):
+    """World-space BVH of the (evaluated) covering garments, e.g. shoes."""
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    verts, polys = [], []
+    for obj in objects:
+        evaluated = obj.evaluated_get(depsgraph)
+        mesh = evaluated.to_mesh()
+        offset = len(verts)
+        verts += [tuple(evaluated.matrix_world @ v.co) for v in mesh.vertices]
+        polys += [[offset + i for i in p.vertices] for p in mesh.polygons]
+        evaluated.to_mesh_clear()
+    return BVHTree.FromPolygons(verts, polys) if polys else None
+
+
+def finalize_basemesh(ns, basemesh, hide_groups=(), cover_objects=()) -> None:
+    """Bake shape keys, drop the masks and delete helper / joint-cube geometry. Body vertices of the
+    delete groups in `hide_groups` (feet under shoes) are deleted only where they are really inside
+    a `cover_objects` mesh (rays in all horizontal directions and downwards hit it), so low shoes
+    never leave a hole at the ankle."""
     if basemesh.data.shape_keys:
         ns.TargetService.bake_targets(basemesh)
     for modifier in list(basemesh.modifiers):
         if modifier.type == "MASK":
             basemesh.modifiers.remove(modifier)
-    doomed_names = {"HelperGeometry", "JointCubes"} | set(hide_groups)
-    helper_groups = {g.index for g in basemesh.vertex_groups if g.name in doomed_names}
+    helper_groups = {g.index for g in basemesh.vertex_groups if g.name in ("HelperGeometry", "JointCubes")}
+    hide_indices = {g.index for g in basemesh.vertex_groups if g.name in set(hide_groups)}
+    cover = _cover_bvh(cover_objects) if hide_indices and cover_objects else None
+    matrix = basemesh.matrix_world
+
+    def inside_cover(co):
+        origin = matrix @ co
+        return all(cover.ray_cast(origin, d, 0.4)[0] is not None for d in _INSIDE_RAYS)
+
     bm = bmesh.new()
     bm.from_mesh(basemesh.data)
     deform = bm.verts.layers.deform.active
-    doomed = [v for v in bm.verts if deform and any(gi in v[deform] and v[deform][gi] > 0.5 for gi in helper_groups)]
+    doomed, hidden = [], 0
+    for v in bm.verts:
+        if not deform:
+            break
+        groups = v[deform]
+        if any(gi in groups and groups[gi] > 0.5 for gi in helper_groups):
+            doomed.append(v)
+        elif cover and any(gi in groups and groups[gi] > 0.5 for gi in hide_indices) and inside_cover(v.co):
+            doomed.append(v)
+            hidden += 1
     bmesh.ops.delete(bm, geom=doomed, context="VERTS")
     bm.to_mesh(basemesh.data)
     bm.free()
-    _LOG.info(f"basemesh finalised: {len(basemesh.data.vertices)} vertices after removing helpers")
+    _LOG.info(f"basemesh finalised: {len(basemesh.data.vertices)} vertices after removing helpers "
+              f"({hidden} body vertices inside shoes removed)")
 
 
 def apply_non_armature_modifiers(obj) -> None:

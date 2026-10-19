@@ -66,7 +66,7 @@ balanced (e.g. 15 female African, 15 male African). Each single marginal is exac
 | cupsize / firmness | uniform in `female_macros` (female) else 0.5 |
 | weight / muscle / proportions | uniform in the somatotype ranges (`somatotype.py`) |
 | race mix | profile mix ± jitter, clipped ≥ 0, normalised (`ethnicity.py`) |
-| skin tone | weighted Monk level → reference RGB × (1 ± tone_jitter) |
+| skin tone | weighted Monk level → reference RGB (reporting) and **albedo target** `skin_albedo_lab[level]` (L* × (1 ± tone_jitter), a*/b* ± 1–1.5); texture base: dark-skinned photo skin for MST ≥ `dark_texture_from_mst` |
 | face | MPFB-style detail sampling (`face.py`, below) |
 | eyes / hair / brows / lashes / gown colour | weighted choices (`looks.py`); grey hair probability rises after `grey_from_age` |
 
@@ -148,17 +148,29 @@ Expected BMI per somatotype (shipped ranges):
 
 ## 5.8 Skin
 
-* `layered` (default without packs): `HumanService.set_character_skin(None, basemesh,
-  skin_type="LAYERED")` creates MPFB's procedural layered skin (body / face / ears / lips / nails
-  regions with pores, veins and colour variation). The tone colour (sRGB → linear) is written into
-  `colorgroup.SkinColor` with `SkinOverride = 1` and into the body, face and ears groups. Lips are
-  derived from the tone.
-* `mhmat`: the system skin best matching `"<age_variant> <base_skin> <sex>"` is loaded as
-  `MAKESKIN` and its diffuse texture is multiplied by the tone.
-* **Bake:** Cycles bakes the *diffuse colour* pass to a 2048² PNG (GPU when available). The
-  material is then replaced by a plain Principled BSDF with that image. Blender's USD exporter can
-  only translate Principled + image textures into `UsdPreviewSurface`, so this step is what makes
-  the skin appear in Isaac Sim.
+**Monk swatch ≠ skin albedo.** The Monk Skin Tone swatches (`skin_tones_rgb`) are *perceived*
+colours: MST 1–3 have L* ≈ 93–94 (almost white) and MST 10 has L* ≈ 15 (almost black). Used as a
+texture colour they render paper-white and coal-black. Measured skin reflectance spans roughly
+L* 27 (darkest) to 72 (lightest), and the MakeHuman photo skins measure L* 27–32 (dark) and 66–80
+(light). The skin is therefore matched to `skin_albedo_lab` (one CIELAB value per Monk level),
+while the Monk colour stays in the metadata as the reference.
+
+* `mhmat` (default with packs, `source: auto`): the MakeHuman **photo skin** best matching
+  `"<age_variant> <texture base> <sex>"` (e.g. `middleage_african_female`) is loaded as `MAKESKIN`.
+  These are scanned/painted textures with pores, creases, nipples, lips and nails. The texture base
+  is the dark-skinned skin for MST ≥ `dark_texture_from_mst` (7), otherwise the ethnicity profile's
+  `base_skin` (asian / caucasian), so the photo detail always comes from the closest real tone.
+* `layered` (fallback without packs): MPFB's procedural layered skin, with the albedo colour in
+  `colorgroup.SkinColor`. It looks flatter (little texture detail).
+* **Bake:** Cycles bakes the *diffuse colour* pass to a 2048² PNG (GPU when available).
+* **Tone match** (`skin.match_tone`): in the baked texture, the median CIELAB colour of the skin
+  pixels is matched to the human's target: L* is **scaled** (`L' = L · L_target / L_median`, so pores
+  and creases keep their relative contrast) and a*/b* are shifted. `tone_match_strength` (0–1)
+  blends between the raw photo colour and the exact target. Before / after values are logged and
+  stored in `H0001.json → appearance.skin.tone`.
+* The material is then replaced by a plain Principled BSDF with that image. Blender's USD exporter
+  can only translate Principled + image textures into `UsdPreviewSurface`, so this is what makes the
+  skin appear in Isaac Sim.
 
 ## 5.9 Eyes, hair and clothing
 

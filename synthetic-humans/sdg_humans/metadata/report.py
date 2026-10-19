@@ -9,7 +9,7 @@ from pathlib import Path
 _LOG = logging.getLogger("sdg_humans.report")
 
 CSV_COLUMNS = [
-    "id", "status", "sex", "age_years", "age_band", "ethnicity", "somatotype", "skin_tone_mst", "skin_rgb_hex",
+    "id", "status", "sex", "age_years", "age_band", "ethnicity", "somatotype", "skin_tone_mst", "skin_rgb_hex", "skin_albedo_hex",
     "eye_color", "clothing_variant", "gown_color", "target_height_cm", "height_cm", "weight_kg", "bmi", "fit_ok",
     "ear_height_left_cm", "ear_height_right_cm", "eye_height_cm", "c7_height_cm", "shoulder_height_left_cm",
     "jugular_notch_height_cm", "xiphoid_height_cm", "iliac_crest_height_cm", "chest_width_cm",
@@ -31,6 +31,7 @@ def _row(meta: dict, status: str) -> dict:
         "id": meta["id"], "status": status, "sex": ident["sex"], "age_years": ident["age_years"],
         "age_band": ident["age_band"], "ethnicity": ident["ethnicity"], "somatotype": ident["somatotype"],
         "skin_tone_mst": ident["skin_tone_mst"], "skin_rgb_hex": ident["skin_rgb_hex"],
+        "skin_albedo_hex": ident.get("skin_albedo_hex"),
         "eye_color": ident["eye_color"], "clothing_variant": meta["clothing"]["variant"],
         "gown_color": meta["clothing"].get("gown_color"), "target_height_cm": body["target_height_cm"],
         "height_cm": body["height_cm"], "weight_kg": body["weight_kg"], "bmi": body["bmi"], "fit_ok": body["fit_ok"],

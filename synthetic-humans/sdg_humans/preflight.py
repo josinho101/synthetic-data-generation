@@ -12,7 +12,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import asset_packs
+from . import asset_packs, clothing_match
 from .mpfb_locate import find_mpfb_dirs, read_manifest_version
 from .paths import ASSETS_DIR, CENTRAL_LOG_DIR, PROJECT_ROOT
 from .pipeline.blender_runner import run_task
@@ -116,7 +116,7 @@ def check_gowns(cfg) -> CheckResult:
     for name, variant in cfg["clothing"]["variants"].items():
         if variant["pct"] <= 0:
             continue
-        for slot in variant["slots"].values():
+        for slot in (leaf for s in variant["slots"].values() for leaf in clothing_match.leaf_slots(s)):
             if "asset" in slot:
                 p = Path(slot["asset"])
                 p = p if p.is_absolute() else ASSETS_DIR / p

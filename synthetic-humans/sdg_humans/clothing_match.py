@@ -41,3 +41,39 @@ def pick(candidates: list, slot: dict, sex: str, rng: random.Random, pack_names=
         return None
     pool.sort(key=lambda c: c["name"])
     return pool[int(pick_roll * len(pool)) % len(pool)]
+
+
+SEXES = ("male", "female")
+
+
+def resolve_slot(slot: dict, sex: str, rng: random.Random):
+    """Turn a configured slot into one concrete slot ({asset: ...} or {mpfb_slot: ...}, plus
+    options such as `recolor`), or None when the slot does not apply to this sex.
+
+    * `male:` / `female:` keys give a different slot per sex (a missing sex = no garment);
+    * `one_of: [{weight: w, ...slot...}, ...]` picks one alternative by weight.
+    Exactly one random draw is consumed per `one_of` level (reproducible)."""
+    if slot is None:
+        return None
+    if any(k in slot for k in SEXES):
+        return resolve_slot(slot.get(sex), sex, rng)
+    if "one_of" in slot:
+        options = slot["one_of"]
+        roll = rng.random() * sum(float(o.get("weight", 1)) for o in options)
+        for option in options:
+            roll -= float(option.get("weight", 1))
+            if roll <= 0:
+                break
+        return resolve_slot({k: v for k, v in option.items() if k != "weight"}, sex, rng)
+    return slot
+
+
+def leaf_slots(slot):
+    """All concrete alternatives of a configured slot (for validation / preflight)."""
+    if slot is None:
+        return []
+    if any(k in slot for k in SEXES):
+        return [leaf for sex in SEXES for leaf in leaf_slots(slot.get(sex))]
+    if "one_of" in slot:
+        return [leaf for option in slot["one_of"] for leaf in leaf_slots(option)]
+    return [slot]

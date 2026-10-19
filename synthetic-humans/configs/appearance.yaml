@@ -47,11 +47,29 @@ skin_tones_rgb:
   9: "#3a312a"
   10: "#292420"
 
+# Skin ALBEDO per Monk level as CIELAB [L*, a*, b*]: the colour the skin texture is matched to.
+# The Monk swatches above are perceived colours (MST 1 is almost white, MST 10 almost black) and
+# render far too light / too dark when used as albedo. Measured skin reflectance spans roughly
+# L* 27 (darkest) .. 72 (lightest); the MakeHuman photo skins measure L* 27-32 (dark) and 66-80 (light).
+skin_albedo_lab:
+  1: [71, 9, 15]
+  2: [68, 10, 16]
+  3: [65, 11, 18]
+  4: [61, 12, 20]
+  5: [56, 13, 21]
+  6: [50, 13, 21]
+  7: [44, 13, 20]
+  8: [38, 12, 18]
+  9: [33, 11, 16]
+  10: [28, 10, 13]
+
 skin:
   # layered : MPFB procedural layered skin (no asset pack needed), tinted by skin tone
   # mhmat   : MakeHuman system skin textures (needs makehuman_system_assets), tinted by skin tone
   # auto    : mhmat when the system assets are installed, otherwise layered
-  source: layered
+  source: auto
+  dark_texture_from_mst: 7     # MST >= 7 uses the dark-skinned photo texture, below the light/asian one
+  tone_match_strength: 1.0     # 0 = raw photo texture colour, 1 = texture mean matched exactly to skin_albedo_lab
   tone_jitter: 0.04             # +/- relative brightness jitter so equal tones still differ
   bake_resolution: 2048         # albedo texture size baked for USD
   roughness: 0.45

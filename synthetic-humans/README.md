@@ -17,8 +17,8 @@ Every human:
   shoulder girdle, pelvis, limbs, hands, feet) inside the body, skinned to the rig;
 - has **hair, eyebrows and eyelashes** (MakeHuman system assets, tinted per human);
 - wears a **hospital gown** (striped or solid, natural shoulders, short trimmed sleeves, knee length,
-  open back with ties) or **professional MPFB garments** (shirts, blouses, trousers, skirts, suits),
-  with **footwear by sex**;
+  open back with ties) or a **shirt / t-shirt with jeans** (women also a knee-length office skirt),
+  in random colours, with **footwear by sex**;
 - comes with an **animated Isaac Sim scene** `<id>_anim.usda` (idle → walk → idle → jump → walk
   back → idle), see [isaac/README.md](isaac/README.md);
 - is written to its own folder: `USD + metadata JSON + preview PNGs + textures`.

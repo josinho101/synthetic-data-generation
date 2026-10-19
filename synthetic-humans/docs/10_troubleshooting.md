@@ -23,6 +23,9 @@
 | `WARNING: Could not register preferences class` in Blender logs | harmless MPFB message when enabled headless | ignore |
 | `Maximum number of closures exceeded` in Blender logs | harmless EEVEE/Cycles note for MPFB's layered skin | ignore (the skin is baked) |
 | a bone pokes through the skin (`<id>.png`) | very thin body region vs. the soft-tissue rule | raise `anatomy.soft_tissue_cm` / `soft_tissue_fraction`; check `<id>_skeleton.png` |
+| white patches on head / face / chest / shoes (runs before 2026-10-19) | bone meshes were shifted up by the footwear floor lift (fixed: bone objects now get the armature's parent inverse) | regenerate the humans |
+| skin looks too light / too dark | `skin_albedo_lab` L* for that Monk level | lower / raise L* by 2–4 for that level; check `appearance.skin.tone` in `<id>.json` |
+| skin looks flat / plastic | `skin.source: layered` or packs missing | install packs (`check_env.py --setup`) and use `source: auto` / `mhmat` |
 | ribs missing for a human | chest rays found no wall (unusual body shape) | logged as WARNING per part; adjust `rib_end_angle_deg` |
 | gown shows horizontal ripples | MHCLO fit follows the ring structure | raise `clothing.gown_shaping.smooth_iterations` |
 | run interrupted | Ctrl+C, reboot | `run_pipeline.py --resume --run-dir <run>` |

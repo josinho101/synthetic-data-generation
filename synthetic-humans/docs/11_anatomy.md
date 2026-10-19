@@ -47,6 +47,12 @@ Rules (sizes scale with stature / 170 cm):
   Solidify modifier.
 * **Pelvis:** each ilium is a plate between the PSIS (beside S1), the iliac crest, the ASIS and the
   acetabulum (femoral head), plus a pubis–ischium ring.
+* **Staying inside the skin** (`build.py`): every bone mesh is first subdivided to `max_edge_cm`
+  (half of that for skull and mandible), then each vertex is pulled `min_depth_below_skin_cm`
+  inside the nearest skin surface. Skull and mandible are additionally clamped radially (eyeballs
+  count as surface). The facial skeleton's front stays 1 cm behind the nasion plane, clear of the
+  nostril channels. Bone objects get the armature's parent inverse, so the footwear floor lift is
+  not applied to them twice.
 * **Long bones** follow the rig joints (shoulder → elbow → wrist, hip → knee → ankle), with knobs
   for the joints. Weights hand over between the MPFB twist bones (upperarm01 → upperarm02, …) so
   the bones twist with the limb.
@@ -62,6 +68,8 @@ Rules (sizes scale with stature / 170 cm):
 | `rib_anterior_drop_cm` | 12 values | front-end drop per rib |
 | `rib_end_angle_deg` | 12 values | where each rib ends (angle from the front midline) |
 | `min_depth_below_skin_cm` | 0.4 | every bone vertex is pulled at least this far inside the skin (no bone shows through on unusual faces / bodies) |
+| `max_edge_cm` | 1.0 | bone meshes are subdivided until no edge is longer than this before the inside check; otherwise a large triangle can cut through a concave skin area (nostrils, eye-cheek crease) although all its corners are inside |
+| `head_depth_below_skin_cm` | 0.8 | skull and mandible are also clamped **radially** from the head centre: each vertex stays this far inside the first skin or eyeball surface. The skin mesh is open at the eyes, mouth and nostrils, where a nearest-surface test can point the wrong way |
 | `preview` | true | write `<id>_skeleton.png` (bones only, front + side) |
 
 ## 11.4 In the USD and metadata

@@ -21,7 +21,9 @@ def skull(ctx) -> dict:
     cranium = MeshAcc()
     ellipsoid(cranium, centre, ((tl.x - tr.x) / 2 * 0.92, (inion.y - nasion.y) / 2 * 0.9,
                                 (vertex.z - centre.z) * 0.92), "head", rings=10, segments=16)
-    ellipsoid(cranium, (0.0, nasion.y + 0.03 * s, (nasion.z + chin.z) / 2 + 0.01 * s),
+    # facial skeleton: its front stays 1 cm behind the nasion plane, clear of the nostril channels
+    # (open holes in the skin mesh); the nose itself is cartilage
+    ellipsoid(cranium, (0.0, nasion.y + 0.045 * s, (nasion.z + chin.z) / 2 + 0.01 * s),
               (0.045 * s, 0.035 * s, (nasion.z - chin.z) / 2 * 0.8), "head")
     mandible = MeshAcc()
     jaw = "jaw" if "jaw" in ctx["bones"] else "head"

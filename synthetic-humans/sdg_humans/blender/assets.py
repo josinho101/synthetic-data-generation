@@ -8,7 +8,7 @@ import bpy
 
 from .. import clothing_match
 from ..paths import ASSETS_DIR
-from . import eyes, gown_style, materials
+from . import colors, eyes, garment_fit, gown_style, materials
 
 _LOG = logging.getLogger("sdg_humans.blender.assets")
 
@@ -34,6 +34,29 @@ def _hair_tint(appearance: dict, spec: dict):
 def delete_group_name(mhclo_path) -> str:
     """Name of the basemesh delete group MPFB creates for a clothes asset."""
     return "Delete." + Path(mhclo_path).stem.replace(" ", "_")
+
+
+def _pick_color(clothing: dict, palette: str, rng):
+    """Weighted colour from clothing.garment_colors[palette] -> (name, '#rrggbb')."""
+    entries = clothing["garment_colors"][palette]
+    name = rng.choices(list(entries), weights=[float(e["pct"]) for e in entries.values()], k=1)[0]
+    return name, entries[name]["rgb"]
+
+
+def _recolor_sock(path, texture_path, spec: dict, clothing: dict, rng) -> None:
+    cfg = clothing.get("sock_recolor") or {}
+    if Path(path).stem not in (cfg.get("assets") or []):
+        return
+    weights = cfg["colors"][spec["sex"]]
+    name = rng.choices(list(weights), weights=[float(v) for v in weights.values()], k=1)[0]
+    if name == "nude":
+        r, g, b = colors.hex_to_srgb(spec["skin"].get("albedo_hex") or spec["skin"]["rgb_hex"])
+        rgb = (r * 0.8, g * 0.75, b * 0.72)
+    else:
+        rgb = colors.hex_to_srgb(cfg["rgb"][name])
+    changed = materials.recolor_neutral(texture_path, rgb, float(cfg.get("max_saturation", 0.15)),
+                                        float(cfg.get("min_value", 0.55)))
+    _LOG.info(f"sock of {Path(path).stem}: {name} ({changed} texture pixels)")
 
 
 def add_body_parts(ns, basemesh, armature, spec: dict, appearance: dict, textures_dir: Path, report: dict) -> dict:
@@ -92,7 +115,10 @@ def add_clothing(ns, basemesh, spec: dict, clothing: dict, textures_dir: Path, r
     rng = random.Random(spec["seed"] ^ 0xC10)
     taken, worn = set(), []
     candidates = None
-    for slot_name, slot in variant["slots"].items():
+    for slot_name, configured in variant["slots"].items():
+        slot = clothing_match.resolve_slot(configured, spec["sex"], rng)
+        if slot is None:      # e.g. a female-only garment for a male human
+            continue
         path = None
         if "asset" in slot:
             p = Path(slot["asset"])
@@ -115,18 +141,30 @@ def add_clothing(ns, basemesh, spec: dict, clothing: dict, textures_dir: Path, r
             continue
         obj = _add_mhclo(ns, str(path), basemesh, "Clothes")
         taken.add(str(path))
-        if "hospital_gown" in str(path):
+        color_name = None
+        if "hospital_gown" in str(path):   # generated garments (gowns, office skirt)
             rig = basemesh.parent
             bones = {b.name for b in rig.data.bones} if rig is not None and rig.type == "ARMATURE" else None
-            gown_style.style_gown(obj, spec, clothing, path, textures_dir, bones)
+            color = None
+            if slot.get("recolor"):
+                color_name, rgb = _pick_color(clothing, slot["recolor"], rng)
+                color = {"rgb": rgb, "base_rgb": rgb, "pattern": "solid"}
+            gown_style.style_gown(obj, spec, clothing, path, textures_dir, bones, color=color, label=slot_name)
         else:
-            materials.normalise(obj, f"{spec['id']}_{slot_name}", textures_dir, alpha=True, bake_colour=True,
-                                max_resolution=int(clothing.get("garment_texture_max_px", 1024)))
+            texture = materials.normalise(obj, f"{spec['id']}_{slot_name}", textures_dir, alpha=True, bake_colour=True,
+                                          max_resolution=int(clothing.get("garment_texture_max_px", 1024)))
+            if texture:
+                _recolor_sock(path, textures_dir / texture, spec, clothing, rng)
+                if slot.get("recolor"):
+                    color_name, rgb = _pick_color(clothing, slot["recolor"], rng)
+                    materials.recolor_garment(textures_dir / texture, colors.hex_to_srgb(rgb))
         worn.append({"slot": slot_name, "asset": path.stem, "object": obj.name, "variant": variant_name,
+                     "color": color_name,
                      "delete_group": delete_group_name(path),
                      "hides_body": slot_name in (clothing.get("hide_body_under") or [])})
-        _LOG.info(f"clothing {slot_name}: {path.stem}")
+        _LOG.info(f"clothing {slot_name}: {path.stem}{f' ({color_name})' if color_name else ''}")
     _layer(worn, float(clothing.get("layer_offset_cm", 0.5)) / 100.0)
+    garment_fit.resolve_poke_through(basemesh, worn, clothing)
     fallback = clothing.get("fallback_variant")
     if not worn and fallback and fallback != variant_name:
         report["notes"].append(f"clothing variant '{variant_name}' produced no garments; using '{fallback}'")

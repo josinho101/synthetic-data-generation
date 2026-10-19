@@ -23,4 +23,6 @@ rib_anterior_drop_cm: [3.0, 5.0, 7.0, 8.0, 9.0, 9.5, 9.5, 9.5, 9.0, 8.0, 6.0, 5.
 rib_end_angle_deg: [14, 14, 14, 14, 14, 16, 20, 32, 42, 55, 85, 100]
 
 min_depth_below_skin_cm: 0.4    # every bone vertex is kept at least this far inside the skin
+max_edge_cm: 1.0                # bone meshes are subdivided to this edge length first, so no triangle cuts through a skin crease
+head_depth_below_skin_cm: 0.8   # skull / mandible: kept this far inside skin and eyeballs, measured radially from the head centre
 preview: true                   # also write <id>_skeleton.png (bones only, front + side)

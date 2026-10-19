@@ -115,6 +115,13 @@ services**:
 
 `check_env.py --fix` and `run_pipeline.py` run it automatically when a gown file is missing.
 
+The same generator also writes the **office skirt** (`variants.office_skirt` with `type: skirt`):
+a tube from the natural waist (`waist_above_hip_cm` above the hip joints) to the knee. It follows
+the hips down to their widest point and then falls straight like a pencil skirt, slightly tapered
+(`taper_cm_per_m`). No asset pack contains a plain knee-length skirt, so it is generated. At build
+time it gets a solid colour from `clothing.garment_colors.skirt` plus the cotton weave texture, the
+same thickness and the same sway weights as the gown.
+
 The gown is modelled on the classic hospital gown: knee length, natural shoulders, round
 neckline, short sleeves with a white trim band, open back with ties, striped or solid fabric.
 How it works (`sdg_humans/blender/gown/`):

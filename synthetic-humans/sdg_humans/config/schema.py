@@ -2,6 +2,8 @@
 
 import re
 
+from ..clothing_match import leaf_slots
+
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
@@ -77,6 +79,11 @@ def _validate_appearance(errors, app):
         for tone in ((prof or {}).get("skin_tone_weights") or {}):
             if tone not in tones:
                 errors.append(f"appearance.ethnicity_profiles.{eth}: skin tone {tone} not in skin_tones_rgb")
+    albedo = app.get("skin_albedo_lab") or {}
+    for tone in tones:
+        lab = albedo.get(tone)
+        if not (isinstance(lab, (list, tuple)) and len(lab) == 3 and 0 < float(lab[0]) <= 100):
+            errors.append(f"appearance.skin_albedo_lab.{tone}: must be [L*, a*, b*] with 0 < L* <= 100")
     if (app.get("skin") or {}).get("source") not in ("auto", "layered", "mhmat"):
         errors.append("appearance.skin.source: must be auto | layered | mhmat")
     for section, triple in ((app.get("face") or {}).get("sections") or {}).items():
@@ -89,8 +96,15 @@ def _validate_clothing(errors, clothing):
     _pct_block(errors, "clothing.variants", clothing.get("variants"), "pct")
     for name, var in (clothing.get("variants") or {}).items():
         for slot, spec in ((var or {}).get("slots") or {}).items():
-            if not isinstance(spec, dict) or len({"asset", "mpfb_slot"} & set(spec)) != 1:
-                errors.append(f"clothing.variants.{name}.slots.{slot}: needs exactly one of asset / mpfb_slot")
+            leaves = leaf_slots(spec) if isinstance(spec, dict) else [None]
+            if not leaves or any(not isinstance(leaf, dict) or len({"asset", "mpfb_slot"} & set(leaf)) != 1
+                                 for leaf in leaves):
+                errors.append(f"clothing.variants.{name}.slots.{slot}: every alternative needs exactly one of "
+                              "asset / mpfb_slot")
+            for leaf in leaves:
+                if isinstance(leaf, dict) and leaf.get("recolor") and leaf["recolor"] not in (clothing.get("garment_colors") or {}):
+                    errors.append(f"clothing.variants.{name}.slots.{slot}: recolor '{leaf['recolor']}' "
+                                  "not in clothing.garment_colors")
     _pct_block(errors, "clothing.gown_colors", clothing.get("gown_colors"), "pct")
     if clothing.get("fallback_if_missing") not in ("skip_slot", "error"):
         errors.append("clothing.fallback_if_missing: must be skip_slot | error")

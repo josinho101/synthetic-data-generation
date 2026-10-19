@@ -39,6 +39,9 @@ class MeshAcc:
                     groups[bone] = obj.vertex_groups.new(name=bone)
                 groups[bone].add([index], w, "REPLACE")
         obj.parent = armature
+        # vertices are in world space; without the inverse the armature's own transform (e.g. the
+        # floor lift for shoes) would be applied a second time and push bones out through the skin
+        obj.matrix_parent_inverse = armature.matrix_world.inverted()
         modifier = obj.modifiers.new("Armature", "ARMATURE")
         modifier.object = armature
         return obj

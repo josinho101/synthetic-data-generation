@@ -80,6 +80,50 @@ def _copy_alpha(source_image, target: Path) -> None:
     bpy.data.images.remove(baked)
 
 
+def recolor_neutral(path: Path, rgb, max_saturation=0.15, min_value=0.55) -> int:
+    """Recolour light, unsaturated pixels of a texture (e.g. a shoe's built-in sock) to rgb (sRGB 0..1),
+    keeping their shading. Returns the number of pixels changed; reloads the image if loaded."""
+    import numpy as np
+    image = bpy.data.images.load(str(path), check_existing=True)
+    w, h = image.size
+    pixels = np.array(image.pixels[:], dtype=np.float32).reshape(h, w, image.channels)
+    rgb_in = pixels[..., :3]
+    value = rgb_in.max(axis=2)
+    saturation = (value - rgb_in.min(axis=2)) / np.maximum(value, 1e-6)
+    mask = (value > min_value) & (saturation < max_saturation)
+    if pixels.shape[2] == 4:
+        mask &= pixels[..., 3] > 0.5
+    shade = (value / max(float(np.percentile(value[mask], 90)) if mask.any() else 1.0, 1e-6)).clip(0.5, 1.1)
+    target = np.array(rgb, dtype=np.float32)
+    pixels[..., :3] = np.where(mask[..., None], (shade[..., None] * target).clip(0, 1), rgb_in)
+    image.pixels[:] = pixels.ravel()
+    image.filepath_raw = str(path)
+    image.save()
+    return int(mask.sum())
+
+
+def recolor_garment(path: Path, rgb) -> None:
+    """Give a garment texture a new colour (sRGB 0..1) while keeping its shading and detail:
+    out = rgb x (luminance / bright luminance). Buttons / prints keep their relative brightness."""
+    import numpy as np
+    image = bpy.data.images.load(str(path), check_existing=True)
+    w, h = image.size
+    pixels = np.array(image.pixels[:], dtype=np.float32).reshape(h, w, image.channels)
+    lum = pixels[..., :3] @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    mask = lum > 0.01
+    if pixels.shape[2] == 4:
+        mask &= pixels[..., 3] > 0.5
+    if not mask.any():
+        return
+    ref = max(float(np.percentile(lum[mask], 85)), 1e-3)
+    shade = (lum / ref).clip(0.0, 1.15)[..., None]
+    target = np.array(rgb, dtype=np.float32)
+    pixels[..., :3] = np.where(mask[..., None], (shade * target).clip(0, 1), pixels[..., :3])
+    image.pixels[:] = pixels.ravel()
+    image.filepath_raw = str(path)
+    image.save()
+
+
 def normalise(obj, name: str, textures_dir: Path, alpha=False, tint_hex=None, roughness=0.6,
               bake_colour=False, max_resolution=1024) -> str:
     """Replace obj's material(s) by one exportable material. Returns the texture file name or ''.
