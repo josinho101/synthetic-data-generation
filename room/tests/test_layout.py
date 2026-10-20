@@ -27,10 +27,13 @@ def test_objects_do_not_overlap(specs):
 
 
 def test_everything_inside_the_footprint(specs):
+    """X-ray room objects inside the footprint; check-in furniture inside the check-in room (outside the footprint)."""
     for s in specs:
         room = Rect(0, 0, *s["footprint_m"])
+        checkin = Rect.from_list(s["layout"]["changing_room"]["interior"])
         for name, r in s["layout"]["obstacles"].items():
-            assert Rect.from_list(r).inside(room), f"{s['id']}: {name} outside the room"
+            area = checkin if name in ("bench", "changing_chair") else room
+            assert Rect.from_list(r).inside(area), f"{s['id']}: {name} outside its room"
 
 
 def test_beam_corridor_door_swings_and_marker_stay_clear(specs):
@@ -39,7 +42,7 @@ def test_beam_corridor_door_swings_and_marker_stay_clear(specs):
         keep = {n: Rect.from_list(r) for n, r in lay["keepouts"].items()}
         for item in lay["props"] + ([lay["patient_support"]] if lay.get("patient_support") else []):
             r = Rect.from_list(item["rect"])
-            for name in ("beam_corridor", "entrance_swing", "entrance_clear", "changing_door_clear", "floor_marker"):
+            for name in ("beam_corridor", "changing_door_swing", "changing_door_clear", "floor_marker"):
                 assert not r.overlaps(keep[name]), f"{s['id']}: {item.get('name', item['kind'])} in {name}"
 
 
@@ -53,13 +56,28 @@ def test_detector_and_tube_face_each_other(specs):
         assert eq["detector_wall"] == ("north" if s["detector_side"] == "left" else "south")
 
 
-def test_changing_room_inside_the_footprint_with_its_own_door(specs):
+def test_checkin_room_outside_the_xray_room_is_the_only_way_in(cfg, specs):
+    """Check-in room against the west wall, outside the footprint; entrance in its wall; connecting door in the
+    shared west wall; patient route entrance -> check-in room -> connecting door -> X-ray room."""
+    t = cfg["room"]["wall_thickness_m"]
     for s in specs:
-        cr = s["layout"]["changing_room"]
-        interior, room = Rect.from_list(cr["interior"]), Rect(0, 0, *s["footprint_m"])
-        assert interior.inside(room)
-        assert cr["door"]["width"] >= 0.7
-        assert s["layout"]["walk_ok"]
+        lay = s["layout"]
+        cr, ent = lay["changing_room"], lay["entrance"]
+        it, W = Rect.from_list(cr["interior"]), s["footprint_m"][1]
+        assert it.x1 == pytest.approx(-t) and 0.0 - 1e-9 <= it.y0 and it.y1 <= W + 1e-9, s["id"]
+        assert (it.y1 == pytest.approx(W)) if cr["corner"] == "north" else (it.y0 == pytest.approx(0.0))
+        door = cr["door"]                                   # connecting door in the X-ray room's west wall
+        assert door["wall"] == "west" and door["plane"] == [-t, 0.0] and door["width"] >= 0.7
+        assert it.y0 <= door["center"][1] - door["width"] / 2 and door["center"][1] + door["width"] / 2 <= it.y1
+        # entrance: a wall of the check-in room facing outside, opening within the check-in room's wall
+        assert ent["placed_on"] in ("west", "side") and ent["swings"] == "out"
+        if ent["placed_on"] == "west":
+            assert ent["center"][0] == pytest.approx(it.x0) and it.y0 < ent["center"][1] < it.y1
+        else:
+            assert ent["wall"] == cr["corner"] and it.x0 < ent["center"][0] < it.x1
+        assert ent["width"] >= cfg["room"]["entrance"]["min_width_m"] - 1e-9
+        assert Rect.from_list(cr["bench"]["rect"]).inside(it)
+        assert lay["walk_ok"] and lay["walk_start"] == cr["point_outside"]
 
 
 def test_other_footprints_solve(cfg):
@@ -72,7 +90,7 @@ def test_other_footprints_solve(cfg):
 def test_entrance_marker_inside_the_room_facing_in_and_clear_of_props(specs):
     for s in specs:
         lay = s["layout"]
-        em, door = lay["entrance_marker"], lay["entrance"]
+        em, door = lay["entrance_marker"], lay["changing_room"]["door"]    # the patient enters through the connecting door
         room = Rect(0, 0, *s["footprint_m"])
         assert Rect.from_list(em["outline"]).inside(room), s["id"]
         # local -Y (toes) points into the room, away from the door
@@ -80,7 +98,7 @@ def test_entrance_marker_inside_the_room_facing_in_and_clear_of_props(specs):
         toes = (math.sin(a), -math.cos(a))
         inward = {"west": (1, 0), "south": (0, 1), "north": (0, -1)}[door["wall"]]
         assert toes[0] == pytest.approx(inward[0], abs=1e-9) and toes[1] == pytest.approx(inward[1], abs=1e-9)
-        clear = Rect.from_list(lay["keepouts"]["entrance_clear"])
+        clear = Rect.from_list(lay["keepouts"]["changing_door_clear"])
         sx, sy = em["stand_point"]
         assert clear.x0 <= sx <= clear.x1 and clear.y0 <= sy <= clear.y1, s["id"]
 

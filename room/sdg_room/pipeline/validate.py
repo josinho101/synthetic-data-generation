@@ -6,6 +6,7 @@ from pathlib import Path
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdShade
 
 from ..placement import FACING
+from ..usd.cameras import stream_prim_name
 
 REQUIRED = ["Shell/Floor", "Shell/Walls", "Shell/Ceiling", "Shell/Doors/Entrance", "CheckIn/Door", "CheckIn/Bench",
             "Equipment/WallStand", "Equipment/TubeStand", "Markers/PatientStand"]
@@ -42,23 +43,39 @@ def _check_placement(stage, root, errors):
         errors.append(f"entrance faces {tuple(round(v, 3) for v in d)} on the stage, expected {facing}")
 
 
+def _annex(root, key):
+    """Rect [x0, y0, x1, y1] (room frame) stored on the root prim, or None."""
+    attr = root.GetAttribute(f"sdg:{key}")
+    value = attr.Get() if attr else None
+    return [float(v) for v in value] if value is not None else None
+
+
 def _check_cameras(stage, root, cameras, footprint_m, errors):
     to_room = _room_frame(stage, root)
+    checkin = _annex(root, "checkin_block")
     for cam in cameras or []:
-        prim = stage.GetPrimAtPath(f"{root.GetPath()}/Cameras/{cam['name']}")
-        if not prim or not prim.IsA(UsdGeom.Camera):
-            errors.append(f"camera {cam['name']} missing")
-            continue
-        m = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()) * to_room
-        eye = m.ExtractTranslation()
-        view = m.TransformDir(Gf.Vec3d(0, 0, -1)).GetNormalized()
-        to_target = (Gf.Vec3d(*cam["target"]) - eye).GetNormalized()
-        if Gf.Dot(view, to_target) < 0.9:
-            errors.append(f"camera {cam['name']} does not look at its target")
-        if cam.get("zone") in ("room", "checkin") and footprint_m:
-            L, W = footprint_m
-            if not (0 < eye[0] < L and 0 < eye[1] < W):
-                errors.append(f"camera {cam['name']} outside the room at {tuple(round(v, 3) for v in eye)}")
+        base = f"{root.GetPath()}/Cameras/{cam['name']}"
+        paths = [f"{base}/{stream_prim_name(cam['name'], s)}" for s in cam["streams"]] if cam.get("rig") else [base]
+        for path in paths:
+            prim = stage.GetPrimAtPath(path)
+            label = path[len(f"{root.GetPath()}/Cameras/"):]
+            if not prim or not prim.IsA(UsdGeom.Camera):
+                errors.append(f"camera {label} missing")
+                continue
+            m = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()) * to_room
+            eye = m.ExtractTranslation()
+            view = m.TransformDir(Gf.Vec3d(0, 0, -1)).GetNormalized()
+            to_target = (Gf.Vec3d(*cam["target"]) - eye).GetNormalized()
+            if Gf.Dot(view, to_target) < 0.9:
+                errors.append(f"camera {label} does not look at its target")
+            if cam.get("zone") == "checkin" and checkin:
+                x0, y0, x1, y1 = checkin
+                if not (x0 < eye[0] < x1 and y0 < eye[1] < y1):
+                    errors.append(f"camera {label} outside the check-in room at {tuple(round(v, 3) for v in eye)}")
+            elif cam.get("zone") in ("room", "checkin", "exam") and footprint_m:
+                L, W = footprint_m
+                if not (0 < eye[0] < L and 0 < eye[1] < W):
+                    errors.append(f"camera {label} outside the room at {tuple(round(v, 3) for v in eye)}")
 
 
 def validate_usd(usd_path, footprint_m=None, ceiling_m=None, wall_t=0.12, expect_semantics=True,
@@ -99,11 +116,12 @@ def validate_usd(usd_path, footprint_m=None, ceiling_m=None, wall_t=0.12, expect
     if unbound:
         errors.append(f"{len(unbound)} meshes without material, e.g. {unbound[:3]}")
     if expect_colliders:
-        n_col = sum(1 for p in meshes if p.HasAPI(UsdPhysics.CollisionAPI))
+        solid = [p for p in meshes if "/Cameras/" not in str(p.GetPath())]   # camera hardware: mostly no colliders
+        n_col = sum(1 for p in solid if p.HasAPI(UsdPhysics.CollisionAPI))
         if n_col == 0:
             errors.append("no colliders")
-        elif n_col < len(meshes) * 0.5:
-            warnings.append(f"only {n_col}/{len(meshes)} meshes have colliders")
+        elif n_col < len(solid) * 0.5:
+            warnings.append(f"only {n_col}/{len(solid)} meshes have colliders")
     if expect_semantics:
         labelled = [p for p in stage.Traverse() if p.HasAttribute("semantics:labels:class")]
         classes = {p.GetAttribute("semantics:labels:class").Get()[0] for p in labelled}
@@ -121,8 +139,13 @@ def validate_usd(usd_path, footprint_m=None, ceiling_m=None, wall_t=0.12, expect
     if footprint_m:
         L, W = footprint_m
         tol = wall_t + 0.02
-        if lo[0] < -tol or lo[1] < -tol or hi[0] > L + tol or hi[1] > W + tol:
-            errors.append(f"bounds {bounds} exceed the footprint {L:.3f} x {W:.3f} m + walls")
+        x0, y0, x1, y1 = -tol, -tol, L + tol, W + tol      # footprint + walls, check-in room, outward entrance swing
+        for rect in (_annex(root, "checkin_block"), _annex(root, "entrance_swing")):
+            if rect:
+                x0, y0, x1, y1 = min(x0, rect[0] - 0.05), min(y0, rect[1] - 0.05), max(x1, rect[2] + 0.05), \
+                    max(y1, rect[3] + 0.05)
+        if lo[0] < x0 or lo[1] < y0 or hi[0] > x1 or hi[1] > y1:
+            errors.append(f"bounds {bounds} exceed the footprint {L:.3f} x {W:.3f} m + walls + check-in room")
     floor = stage.GetPrimAtPath(f"{rp}/Shell/Floor")
     if floor:
         ftop = cache.ComputeRelativeBound(floor, root).ComputeAlignedRange().GetMax()[2]

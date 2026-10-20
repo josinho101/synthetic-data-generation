@@ -4,7 +4,7 @@ import json
 import logging
 from pathlib import Path
 
-from ..layout.cameras import solve_cameras
+from ..layout.cameras import solve_cameras, solve_exam_cameras
 from ..layout.solver import LayoutError, solve_layout
 from .distributions import room_rng
 from .sampler import sample_spec
@@ -42,6 +42,7 @@ def build_room_spec(cfg: dict, index: int) -> dict:
             _LOG.debug(f"{rid}: attempt {attempt} rejected: camera coverage {short}")
             continue
         spec["layout"]["warnings"] += [f"room cameras see only {s_}" for s_ in short]
+        spec["cameras"] += solve_exam_cameras(cfg, spec, room_rng(var["seed"], index, attempt, "exam_cameras"))
         spec["layout_rejections"] = errors
         return spec
     raise LayoutError(f"{rid}: no valid layout after {len(errors)} attempts; last reasons: {errors[-3:]}")

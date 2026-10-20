@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..placement import Placement
+from ..usd.cameras import stream_prim_name
 
 
 def write_room_metadata(path, spec: dict, build: dict, run_id: str, generator_version: str) -> dict:
@@ -13,15 +14,25 @@ def write_room_metadata(path, spec: dict, build: dict, run_id: str, generator_ve
     place = Placement(spec, _cfg_for_placement(build))
     cameras = [dict(c, prim=build["prims"].get("cameras", {}).get(c["name"]), position_stage=place.to_stage(c["position"]),
                     target_stage=place.to_stage(c["target"])) for c in spec.get("cameras", [])]
+    for c in cameras:                 # RGB-D rigs: one camera prim per stream under the rig Xform
+        if c.get("rig") and c.get("prim"):
+            c["stream_prims"] = {s: f"{c['prim']}/{stream_prim_name(c['name'], s)}" for s in c["streams"]}
+            c["up_stage"] = place.dir_to_stage(c["up"])
     stand = lay["marker"]["stand_point"] + [0.0]
     em = lay.get("entrance_marker")
+    cr = lay["changing_room"]
+    route = [{"step": k, "position": list(p[:2]) + [0.0]} for k, p in (     # patient route, room frame
+        ("entrance", lay["checkin_start"]), ("check_in", cr["point_inside"]),
+        ("connecting_door", cr["door"]["center"]), ("entrance_stand", em["stand_point"] if em else cr["point_outside"]),
+        ("patient_stand", lay["marker"]["stand_point"]))]
     meta = {
         "id": spec["id"], "run_id": run_id, "generator_version": generator_version,
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "seed": spec["seed"], "attempt": spec["attempt"], "layout_rejections": spec.get("layout_rejections", []),
         "usd": Path(build["usd"]).name, "units": {"meters_per_unit": 1.0, "up_axis": "Z"},
-        "coordinate_frame": "room frame: origin = interior floor corner at the entrance end; x along the room, "
-                            "y across, z up. *_stage values are on the Isaac stage (after the root placement)",
+        "coordinate_frame": "room frame: origin = the X-ray room's interior floor corner at the entrance end; x along "
+                            "the room, y across, z up; the check-in room lies outside it at x < 0. *_stage values "
+                            "are on the Isaac stage (after the root placement)",
         "placement": build.get("placement"),
         "room": {"footprint_m": spec["footprint_m"], "ceiling_height_m": spec["ceiling_height_m"],
                  "wall_finish": spec["walls"], "floor": spec["floor"], "door_color": spec["door_color"]},
@@ -38,6 +49,8 @@ def write_room_metadata(path, spec: dict, build: dict, run_id: str, generator_ve
             "focal_spot": eq["focal_spot"], "beam_axis": eq["beam_axis"], "sid_m": eq["sid_m"],
             "entrance_door": lay["entrance"]["center"], "changing_door": lay["changing_room"]["door"]["center"],
             "changing_room_inside": lay["changing_room"]["point_inside"],
+            "checkin_start": lay["checkin_start"],
+            "patient_route": route,
             "stage": {"patient_stand": place.to_stage(stand),
                       "patient_yaw_deg": round((lay["marker"]["yaw_deg"] + place.yaw_deg + 180) % 360 - 180, 4),
                       "detector_center": place.to_stage(eq["detector"]["center"]),
@@ -46,7 +59,8 @@ def write_room_metadata(path, spec: dict, build: dict, run_id: str, generator_ve
                       "entrance_door": place.to_stage(lay["entrance"]["center"] + [0.0]),
                       "entrance_stand": em and place.to_stage(em["stand_point"] + [0.0]),
                       "entrance_yaw_deg": em and round((em["yaw_deg"] + place.yaw_deg + 180) % 360 - 180, 4),
-                      "changing_door": place.to_stage(lay["changing_room"]["door"]["center"] + [0.0])},
+                      "changing_door": place.to_stage(lay["changing_room"]["door"]["center"] + [0.0]),
+                      "patient_route": [dict(r, position=place.to_stage(r["position"])) for r in route]},
         },
         "cameras": cameras,
         "camera_coverage": spec.get("camera_coverage", {}),

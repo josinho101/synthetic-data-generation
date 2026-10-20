@@ -17,6 +17,8 @@ What it does:
                   (the synthetic humans face -Y, PatientStand's local -Y points at the detector)
   detector and tube heights are set to the human's T7 landmark height (PA chest centre) unless
   --detector-height is given; values are clamped to the travel limits stored on the room prims (sdg:travel_*).
+  RGB-D exam cameras mounted on the moved parts (sdg:attached_to = wall_stand_carriage / tube_head, e.g.
+  RealSense_D455_Top, RealSense_D455_Front) and their mounts (<name>_Mount) are shifted by the same height change.
 """
 
 import argparse
@@ -58,6 +60,37 @@ def _set_translate_z(stage, path, z):
     op.Set(Gf.Vec3d(t[0], t[1], z))
 
 
+def _translate_z(prim):
+    op = next(o for o in UsdGeom.Xformable(prim).GetOrderedXformOps() if o.GetOpType() == UsdGeom.XformOp.TypeTranslate)
+    return op.Get()[2]
+
+
+def _shift_attached(stage, room_prim, attached_to, dz):
+    """Move the exam cameras attached to a moved part (and their stand meshes) up by dz."""
+    cams = stage.GetPrimAtPath(f"{room_prim}/Cameras")
+    if not cams or abs(dz) < 1e-9:
+        return []
+    moved = []
+    for rig in cams.GetChildren():
+        attr = rig.GetAttribute("sdg:attached_to")
+        if not attr or attr.Get() != attached_to:
+            continue
+        for ops_prim in (rig, cams.GetChild(f"{rig.GetName()}_Mount")):
+            if not ops_prim:
+                continue
+            for op in UsdGeom.Xformable(ops_prim).GetOrderedXformOps():
+                if op.GetOpType() == UsdGeom.XformOp.TypeTransform:
+                    m = Gf.Matrix4d(op.Get())
+                    m.SetTranslateOnly(m.ExtractTranslation() + Gf.Vec3d(0, 0, dz))
+                    op.Set(m)
+                    break
+                if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+                    op.Set(op.Get() + Gf.Vec3d(0, 0, dz))
+                    break
+        moved.append(rig.GetName())
+    return moved
+
+
 def compose(room_usd, out, human_usd=None, detector_height=None, room_prim="/World/Room"):
     room_usd, out = Path(room_usd).resolve(), Path(out).resolve()
     stage = Usd.Stage.CreateNew(str(out))
@@ -93,11 +126,19 @@ def compose(room_usd, out, human_usd=None, detector_height=None, room_prim="/Wor
         arm = stage.GetPrimAtPath(f"{room_prim}/{ARM}")
         if carriage:
             h = _clamp(carriage, float(height))
+            moved = []
             with Usd.EditContext(stage, stage.GetEditTarget()):
+                dz = h - _translate_z(carriage)
                 _set_translate_z(stage, carriage.GetPath(), h)
+                moved += _shift_attached(stage, room_prim, "wall_stand_carriage", dz)
                 if arm:
-                    _set_translate_z(stage, arm.GetPath(), _clamp(arm, h))
+                    a = _clamp(arm, h)
+                    dz = a - _translate_z(arm)
+                    _set_translate_z(stage, arm.GetPath(), a)
+                    moved += _shift_attached(stage, room_prim, "tube_head", dz)
             info["detector_height_m"] = round(h, 4)
+            if moved:
+                info["cameras_moved_with_equipment"] = moved
     stage.GetRootLayer().customLayerData = {"sdg_scene": json.dumps(info)}
     stage.GetRootLayer().Save()
     return info

@@ -26,13 +26,14 @@ def render_plan(spec: dict, path, px_per_m: int = 160, wall_t: float = 0.12) -> 
     L, W = spec["footprint_m"]
     lay = spec["layout"]
     pad_m = wall_t + 0.35
-    width, height = int((L + 2 * pad_m) * px_per_m), int((W + 2 * pad_m) * px_per_m) + 60
+    x_min = min(0.0, Rect.from_list(lay["changing_room"]["block"]).x0)    # the check-in room lies at x < 0
+    width, height = int((L - x_min + 2 * pad_m) * px_per_m), int((W + 2 * pad_m) * px_per_m) + 60
     img = Image.new("RGB", (width, height), (255, 255, 255))
     d = ImageDraw.Draw(img, "RGBA")
     font, small = _font(max(12, px_per_m // 9)), _font(max(10, px_per_m // 13))
 
     def P(x, y):   # room meters -> pixels (y up)
-        return ((x + pad_m) * px_per_m, (W + pad_m - y) * px_per_m)
+        return ((x - x_min + pad_m) * px_per_m, (W + pad_m - y) * px_per_m)
 
     def rect(r, fill, outline=None, w=1):
         r = r if isinstance(r, Rect) else Rect.from_list(r)
@@ -46,9 +47,8 @@ def render_plan(spec: dict, path, px_per_m: int = 160, wall_t: float = 0.12) -> 
     rect(Rect(-wall_t, -wall_t, L + wall_t, W + wall_t), _COLORS["wall"])
     rect(Rect(0, 0, L, W), _COLORS["floor"])
     cr = lay["changing_room"]
+    rect(cr["block"], _COLORS["wall"])
     rect(cr["interior"], _COLORS["changing"])
-    for key in ("partition_east", "partition_inner"):
-        rect(cr[key], _COLORS["partition"])
     for name, r in lay["keepouts"].items():
         if name == "beam_corridor":
             rect(r, _COLORS["corridor"] + (170,))
@@ -57,15 +57,15 @@ def render_plan(spec: dict, path, px_per_m: int = 160, wall_t: float = 0.12) -> 
         elif "swing" in name:
             rect(r, _COLORS["swing"] + (120,))
     # door openings (gap in the wall drawn in door colour)
-    ent = lay["entrance"]
+    ent = lay["entrance"]                       # outer door of the check-in room
     cx, cy = ent["center"]
     half = ent["width"] / 2
     if ent["axis"] == "y":
-        rect(Rect(-wall_t, cy - half, 0, cy + half), _COLORS["door"])
+        rect(Rect(ent["plane"][0], cy - half, ent["plane"][1], cy + half), _COLORS["door"])
+        label("ENTRANCE", ent["plane"][0] - 0.05, cy - half - 0.12, f=small)
     else:
-        y0 = -wall_t if cy == 0 else W
-        rect(Rect(cx - half, y0, cx + half, y0 + wall_t), _COLORS["door"])
-    label("ENTRANCE", *( (0.45, cy) if ent["axis"] == "y" else (cx, 0.25 if cy == 0 else W - 0.25)), f=small)
+        rect(Rect(cx - half, ent["plane"][0], cx + half, ent["plane"][1]), _COLORS["door"])
+        label("ENTRANCE", cx, ent["plane"][1] + 0.12 if ent["out_normal"][1] > 0 else ent["plane"][0] - 0.12, f=small)
     door = cr["door"]
     dx, dy = door["center"]
     half = door["width"] / 2
@@ -74,7 +74,7 @@ def render_plan(spec: dict, path, px_per_m: int = 160, wall_t: float = 0.12) -> 
     else:
         rect(Rect(dx - half, door["plane"][0], dx + half, door["plane"][1]), _COLORS["door"])
     it = Rect.from_list(cr["interior"])
-    label("CHANGING", it.cx, it.cy + 0.15, f=font)
+    label("CHECK-IN", it.cx, it.cy + 0.15, f=font)
     rect(cr["bench"]["rect"], _COLORS["bench"])
     if cr.get("chair"):
         rect(cr["chair"]["rect"], _COLORS["prop"])
@@ -111,18 +111,33 @@ def render_plan(spec: dict, path, px_per_m: int = 160, wall_t: float = 0.12) -> 
         r = Rect.from_list(prop["rect"])
         label(prop["kind"].replace("_", " "), r.cx, r.cy)
     import math
+    for stand in (lay.get("exam_cameras") or {}).values():          # tripod leg spread
+        r = Rect.from_list(stand["stand_rect"])
+        (ax, ay), (bx, by) = P(r.x0, r.y1), P(r.x1, r.y0)
+        d.ellipse([ax, ay, bx, by], fill=(60, 110, 210, 40), outline=(40, 80, 180, 220), width=2)
     for cam in spec.get("cameras", []):
         if cam["zone"] == "outside":
             continue
-        (x, y, _), (tx, ty, _) = cam["position"], cam["target"]
-        a, half = math.atan2(ty - y, tx - x), math.radians(cam["fov_h_deg"] / 2)
-        reach = 1.2
-        wedge = [P(x, y), P(x + reach * math.cos(a - half), y + reach * math.sin(a - half)),
-                 P(x + reach * math.cos(a + half), y + reach * math.sin(a + half))]
-        d.polygon(wedge, fill=(80, 170, 90, 60), outline=(40, 130, 60, 200))
+        (x, y, z), (tx, ty, tz) = cam["position"], cam["target"]
+        exam = bool(cam.get("rig"))
+        fov = cam["fov_h_deg"]                     # horizontal FOV (portrait optics are already swapped)
+        a, half = math.atan2(ty - y, tx - x), math.radians(fov / 2)
+        reach = 1.2 if not exam else max(0.35, min(1.2, math.hypot(tx - x, ty - y)))
+        fill, edge, dot = ((60, 110, 210, 55), (40, 80, 180, 220), (30, 70, 170)) if exam else \
+            ((80, 170, 90, 60), (40, 130, 60, 200), (30, 120, 50))
+        if exam and math.hypot(tx - x, ty - y) < 0.3 * abs(tz - z):    # looking down: draw the floor footprint
+            r = math.tan(math.radians(cam["fov_v_deg"] / 2)) * abs(tz - z) * 0.5
+            cx_, cy_ = P(tx, ty)
+            d.ellipse([cx_ - r * px_per_m, cy_ - r * px_per_m, cx_ + r * px_per_m, cy_ + r * px_per_m],
+                      fill=fill, outline=edge)
+        else:
+            wedge = [P(x, y), P(x + reach * math.cos(a - half), y + reach * math.sin(a - half)),
+                     P(x + reach * math.cos(a + half), y + reach * math.sin(a + half))]
+            d.polygon(wedge, fill=fill, outline=edge)
         px, py = P(x, y)
-        d.ellipse([px - 6, py - 6, px + 6, py + 6], fill=(30, 120, 50))
-        label(cam["name"].replace("Cam_", ""), x + 0.25 * math.cos(a), y + 0.25 * math.sin(a) - 0.12)
+        d.ellipse([px - 6, py - 6, px + 6, py + 6], fill=dot)
+        label(cam["name"].replace("CeilingCam_", "").replace("RealSense_D455_", "D455 "), x + 0.25 * math.cos(a),
+              y + 0.25 * math.sin(a) - 0.12)
     # viewer arrow: outside the entrance, pointing at the door (this side faces the viewer in Isaac Sim)
     ox, oy = {"west": (-1, 0), "south": (0, -1), "north": (0, 1), "east": (1, 0)}[ent["wall"]]
     tip = (ent["center"][0] + ox * (wall_t + 0.03), ent["center"][1] + oy * (wall_t + 0.03))

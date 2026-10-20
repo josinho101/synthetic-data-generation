@@ -4,7 +4,6 @@ from pxr import Gf, Usd, UsdGeom
 from sdg_room.config import apply_overrides
 from sdg_room.layout.geometry import Rect
 from sdg_room.pipeline.validate import validate_usd
-from sdg_room.placement import entrance_outward
 from sdg_room.sampling.manifest import build_room_spec
 from sdg_room.usd.build import build_room_usd
 
@@ -16,17 +15,19 @@ def specs(cfg):
 
 def test_default_cameras_present(specs):
     for s in specs:
-        assert {c["name"] for c in s["cameras"]} == {"Cam_FarLeft", "Cam_FarRight", "Cam_CheckIn", "Viewer_Entrance"}
+        assert {c["name"] for c in s["cameras"]} == {"CeilingCam_FarLeft", "CeilingCam_FarRight", "CeilingCam_CheckIn", "Viewer_Entrance",
+                                                     "RealSense_D455_Left", "RealSense_D455_Right", "RealSense_D455_Front", "RealSense_D455_Top"}
 
 
 def test_far_cameras_high_on_the_wall_opposite_the_entrance(specs):
+    """Opposite the X-ray room's entry: the connecting door from the check-in room in the west wall."""
     for s in specs:
-        out = entrance_outward(s)
-        door = s["layout"]["entrance"]["center"]
+        out = (-1.0, 0.0)
+        door = s["layout"]["changing_room"]["door"]["center"]
         H = s["ceiling_height_m"]
         cams = {c["name"]: c for c in s["cameras"]}
         room = Rect(0, 0, *s["footprint_m"])
-        for name in ("Cam_FarLeft", "Cam_FarRight"):
+        for name in ("CeilingCam_FarLeft", "CeilingCam_FarRight"):
             p = cams[name]["position"]
             assert room.contains(p[0], p[1]) and H - 0.35 < p[2] < H
             # far from the entrance along the inward direction
@@ -34,13 +35,14 @@ def test_far_cameras_high_on_the_wall_opposite_the_entrance(specs):
         # left is on the viewer's left when looking into the room
         inward = (-out[0], -out[1])
         left = (-inward[1], inward[0])
-        l, r = cams["Cam_FarLeft"]["position"], cams["Cam_FarRight"]["position"]
+        l, r = cams["CeilingCam_FarLeft"]["position"], cams["CeilingCam_FarRight"]["position"]
         assert l[0] * left[0] + l[1] * left[1] > r[0] * left[0] + r[1] * left[1]
 
 
 def test_checkin_camera_inside_changing_room(specs):
     for s in specs:
-        cam = next(c for c in s["cameras"] if c["name"] == "Cam_CheckIn")
+        cam = next(c for c in s["cameras"] if c["name"] == "CeilingCam_CheckIn")
+        assert cam["position"][0] < 0                    # the check-in room is outside the X-ray room
         assert Rect.from_list(s["layout"]["changing_room"]["interior"]).contains(*cam["position"][:2])
 
 
@@ -49,7 +51,7 @@ def test_cameras_in_usd_look_at_targets(cfg, tmp_path, specs):
     build = build_room_usd(cfg, spec, tmp_path / spec["id"], "test")
     assert validate_usd(build["usd"], spec["footprint_m"], cameras=spec["cameras"])["status"] == "ok"
     stage = Usd.Stage.Open(build["usd"])
-    for cam in spec["cameras"]:
+    for cam in (c for c in spec["cameras"] if not c.get("rig")):     # RGB-D rigs: tests/test_exam_cameras.py
         prim = stage.GetPrimAtPath(f"/Room/Cameras/{cam['name']}")
         assert prim.IsA(UsdGeom.Camera)
         assert UsdGeom.Camera(prim).GetFocalLengthAttr().Get() == pytest.approx(cam["focal_length_mm"])
@@ -57,14 +59,14 @@ def test_cameras_in_usd_look_at_targets(cfg, tmp_path, specs):
 
 
 def test_camera_can_be_disabled_and_reconfigured(cfg):
-    c = apply_overrides(cfg, {"cameras.cameras.Cam_CheckIn.enabled": False,
-                              "cameras.cameras.Cam_FarLeft.auto_frame": False,
-                              "cameras.cameras.Cam_FarLeft.target": "floor_marker",
-                              "cameras.cameras.Cam_FarLeft.resolution": [640, 480]})
+    c = apply_overrides(cfg, {"cameras.cameras.CeilingCam_CheckIn.enabled": False,
+                              "cameras.cameras.CeilingCam_FarLeft.auto_frame": False,
+                              "cameras.cameras.CeilingCam_FarLeft.target": "floor_marker",
+                              "cameras.cameras.CeilingCam_FarLeft.resolution": [640, 480]})
     s = build_room_spec(c, 0)
     names = {cam["name"]: cam for cam in s["cameras"]}
-    assert "Cam_CheckIn" not in names
-    assert names["Cam_FarLeft"]["target_name"] == "floor_marker" and names["Cam_FarLeft"]["resolution"] == [640, 480]
+    assert "CeilingCam_CheckIn" not in names
+    assert names["CeilingCam_FarLeft"]["target_name"] == "floor_marker" and names["CeilingCam_FarLeft"]["resolution"] == [640, 480]
     assert not build_room_spec(apply_overrides(cfg, {"cameras.enabled": False}), 0)["cameras"]
 
 
@@ -76,7 +78,7 @@ def test_camera_streams_do_not_change_room_choices(cfg):
 
 def test_bad_camera_config_rejected(cfg):
     from sdg_room.config.schema import validate
-    errors = validate(apply_overrides(cfg, {"cameras.cameras.Cam_FarLeft.mount": "ceiling_fan"}))
+    errors = validate(apply_overrides(cfg, {"cameras.cameras.CeilingCam_FarLeft.mount": "ceiling_fan"}))
     assert any("mount" in e for e in errors)
 
 
@@ -110,7 +112,7 @@ def test_occlusion_slab_test():
 
 
 def test_manual_framing_still_possible(cfg):
-    c = apply_overrides(cfg, {"cameras.cameras.Cam_FarLeft.auto_frame": False,
-                              "cameras.cameras.Cam_FarLeft.focal_length_mm": 12.0})
-    cam = next(x for x in build_room_spec(c, 0)["cameras"] if x["name"] == "Cam_FarLeft")
+    c = apply_overrides(cfg, {"cameras.cameras.CeilingCam_FarLeft.auto_frame": False,
+                              "cameras.cameras.CeilingCam_FarLeft.focal_length_mm": 12.0})
+    cam = next(x for x in build_room_spec(c, 0)["cameras"] if x["name"] == "CeilingCam_FarLeft")
     assert not cam["auto_frame"] and cam["focal_length_mm"] == 12.0 and "coverage" in cam

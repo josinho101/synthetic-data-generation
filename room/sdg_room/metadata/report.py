@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 CATEGORICAL = ["wall_finish", "floor_material", "detector_side", "changing_room_corner", "entrance_wall",
-               "changing_door_wall", "cct_class", "patient_support", "tube_column_type"]
+               "cct_class", "patient_support", "tube_column_type"]
 
 
 def write_rooms_csv(path, specs: list, results: dict) -> None:

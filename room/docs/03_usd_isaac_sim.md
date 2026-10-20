@@ -13,7 +13,9 @@ Materials are `UsdPreviewSurface`, which RTX renders directly. Textures are refe
 `/Room` has `xformOp:translate` + `xformOp:rotateZ` so that, on the stage, the footprint centre is at
 (0, 0, 0), the floor at z = 0, and the entrance's outside faces `export.placement.door_facing`
 (default −Y). This holds whichever wall the entrance was sampled on. The root also carries
-`sdg:door_facing`, `sdg:entrance_outward_room` and `sdg:placement_origin`. The layer's
+`sdg:door_facing`, `sdg:entrance_outward_room`, `sdg:placement_origin`, and the extents of the
+check-in room and the outward entrance swing outside the footprint (`sdg:checkin_block`,
+`sdg:entrance_swing`, room frame [x0, y0, x1, y1]). The layer's
 `customLayerData.cameraSettings` sets Isaac's perspective viewport (`/OmniverseKit_Persp`) to start
 `viewer_distance_m` in front of the door. This only applies when the room file itself is opened. In
 a referencing scene, use the `Viewer_Entrance` camera instead.
@@ -22,8 +24,10 @@ a referencing scene, use the `Viewer_Entrance` camera instead.
 
 ```
 /Room
-├── Shell/{Floor, Ceiling, Walls/{South_*, North_*, West_*, East_*}, Doors/Entrance/{JambL, JambR, Head, Leaf}}
-├── CheckIn/{Walls, Door, Bench, Hooks/Hook_*, GownShelf/{Board, Gown_*}, Mirror?, Chair?}
+├── Shell/{Floor, Ceiling, Walls/{South_*, North_*, West_* (connecting-door opening), East_*},
+│          Doors/Entrance/{JambL, JambR, Head, Leaf}}            entrance = the check-in room's outer door
+├── CheckIn/{Floor, Ceiling, Walls/{West_*, Outer_*, Inner_*}, Door (connecting door), Bench, Hooks/Hook_*,
+│           GownShelf/{Board, Gown_*}, Mirror?, Chair?}           outside the footprint (x < 0)
 ├── Equipment/
 │   ├── WallStand/{Base, Column, ColumnTrim, TopCap,
 │   │             Carriage/{Sleeve, Detector/{Housing, ActiveArea, Handles/{Handle_L, Handle_R, Handle_Top?, Standoff_*}}}}
@@ -33,7 +37,9 @@ a referencing scene, use the `Viewer_Entrance` camera instead.
 ├── Markers/{Frame/{Outline*, CenterLine, Footprints}, PatientStand, EntranceFrame/{Outline*, Footprints}, EntranceStand}
 ├── Props/{Table|Stretcher, GeneratorCabinet01, LeadScreen01, ApronRack01/{Apron_*}, Chair01, WasteBin01, StepStool01, CableRun_*}
 ├── Lights/{Panel_01…, Panel_Changing}/{Frame, Diffuser, RectLight}
-├── Cameras/{Cam_FarLeft, Cam_FarRight, Cam_CheckIn, Viewer_Entrance, *_Housing/{Head/{Body, LensRing}, Arm, CeilingPlate}}
+├── Cameras/{CeilingCam_FarLeft, CeilingCam_FarRight, CeilingCam_CheckIn, Viewer_Entrance, *_Housing/{Head/{Body, LensRing}, Arm, CeilingPlate},
+│            RealSense_D455_<Front|Left|Right|Top>/{RealSense_D455_<…>_RGB, RealSense_D455_<…>_Depth},
+│            RealSense_D455_<…>_Mount/{Head/{Body, Lens0, Lens1}, Column, Plate, Hub, Leg0-2 | Post, Foot, Arm, Hanger}}
 └── Looks/  Floor, Wall, Ceiling, EquipBody, EquipAccent, Metal, DetectorFront, Tape, Footprints, DoorLeaf, …
 ```
 
@@ -65,11 +71,51 @@ them in the viewport camera menu, or use them for Replicator render products:
 
 ```python
 import omni.replicator.core as rep
-rp = rep.create.render_product("/Room/Cameras/Cam_FarLeft", (1280, 720))
+rp = rep.create.render_product("/Room/Cameras/CeilingCam_FarLeft", (1280, 720))
 ```
 
 `isaac/capture_cameras.py` does this for every room camera and writes RGB, semantic segmentation and
 depth with `BasicWriter` (Script Editor or `./python.sh`; not tested outside Isaac Sim).
+
+### Exam cameras (Intel RealSense D455)
+
+Each exam camera is an `Xform` `/Room/Cameras/RealSense_D455_<Front|Left|Right|Top>` carrying the look-at
+transform (camera frame: +X right, +Y up, −Z view). Left / right are the patient's left / right while facing the
+detector; Front is the camera on the X-ray source. Each rig has one `UsdGeom.Camera` per stream, with a unique
+name so Isaac's viewport camera menu shows which camera it is:
+
+| Prim | Optics (h × v) landscape / portrait | Resolution landscape / portrait | Offset in the rig |
+|---|---|---|---|
+| `RealSense_D455_<…>_Depth` | 87° × 58° / 58° × 87° | 1280 × 720 / 720 × 1280 | origin (left imager) |
+| `RealSense_D455_<…>_RGB` | 90° × 65° / 65° × 90° | 1280 × 800 / 800 × 1280 | `sensors.d455.color.offset_m` (≈ 5.9 cm, approximate) |
+
+Front, Left and Right are **portrait**: the camera prim stays upright and the image is tall (the D455 body is
+drawn on its side, as it would be mounted). Top is **landscape** and looks down; its image width runs along
+the detector wall and the image top points away from the detector. Every camera aims at the patient on the floor
+marker and has `focusDistance` = the distance to that point, with `fStop` = 0 (no depth-of-field blur).
+
+Rig attributes: `sdg:rig` (`d455`), `sdg:mount`, `sdg:attached_to` (`floor` / `tube_head` /
+`wall_stand_carriage`), `sdg:orientation`, `sdg:target`, `sdg:depth_range_m`. Stream attributes:
+`sdg:stream`, `sdg:resolution`, `sdg:fov_h_deg`, `sdg:fov_v_deg`.
+
+**The big grey movie-camera shapes in the Isaac viewport are not the cameras' geometry.** Isaac draws an icon
+at every camera prim, and each D455 has two (RGB + Depth). The icons don't appear in renders or captures. Hide
+them with the viewport eye menu → *Show By Type → Cameras*; the real-size D455 bodies (124 × 29 × 26 mm),
+tripods and brackets are then visible.
+
+The hardware is under `RealSense_D455_<…>_Mount` (label `camera_stand`; the body is labelled `rgbd_camera`):
+
+| Camera | Mount | Hardware |
+|---|---|---|
+| `RealSense_D455_Left` / `RealSense_D455_Right` | floor, 1.4 m from the detector centre, lens 1.0 m | tripod: 3 legs + centre column (legs and column have colliders) |
+| `RealSense_D455_Front` | top of the tube housing | bracket post (no collider) |
+| `RealSense_D455_Top` | detector housing top | post + arm reaching 0.2 m out from the detector face (no collider) |
+
+The cameras are fixed prims (not children of the equipment). `isaac/compose_scene.py` shifts
+`RealSense_D455_Top` / `RealSense_D455_Front` together with the detector / tube when it sets their height. If you move
+the carriage yourself, move the rigs with `sdg:attached_to` by the same amount. A body asset can
+replace the primitive body: `sensors.d455.asset` (e.g. Isaac Sim's `rsd455.usd`), referenced at
+`RealSense_D455_<…>_Mount/Head/Body`.
 
 ## 3.3 Physics and semantics
 
@@ -88,14 +134,14 @@ depth with `BasicWriter` (Script Editor or `./python.sh`; not tested outside Isa
 | Check | Level |
 |---|---|
 | stage opens; Z-up; metersPerUnit 1; defaultPrim | error |
-| required prims (shell, doors, changing room, wall stand + handles + active area, tube stand + rail + head, PatientStand) | error |
+| required prims (shell, doors, check-in room, wall stand + handles + active area, tube stand + rail + head, PatientStand) | error |
 | at least one RectLight; every texture file exists | error |
 | every mesh has a material | error |
-| colliders present (warning when fewer than half the meshes) | error / warning |
+| colliders present (warning when fewer than half the meshes, camera hardware not counted) | error / warning |
 | semantic classes floor, wall, wall_detector, detector_handle, xray_tube, floor_marker, door | error |
-| world bounds inside footprint + walls; floor top at z = 0 (room frame) | error |
+| world bounds inside footprint + walls + check-in room + outward entrance swing; floor top at z = 0 (room frame) | error |
 | root placement turns the entrance's outward normal onto `door_facing` | error |
-| every camera exists, looks at its target; room / check-in cameras inside the room | error |
+| every camera (and every RGB / Depth stream of an exam camera) exists, looks at its target; room and exam cameras inside the X-ray room, the check-in camera inside the check-in room | error |
 
 Parts replaced by an `asset:` override skip their procedural-only checks.
 
@@ -127,5 +173,7 @@ in `configs/lighting.yaml` and regenerate. From then on new rooms hit the target
 * The room is centred at the origin with the door facing −Y; translate / rotate the referencing prim to move it.
 * Synthetic humans: reference them onto `Markers/PatientStand` (local −Y points at the detector,
   as the humans face −Y), or use `isaac/compose_scene.py`.
-* `Markers/EntranceStand` is where the patient first stands still just inside the entrance door
-  (local −Y points into the room); reference a human there for the "just arrived" pose.
+* `Markers/EntranceStand` is where the patient first stands still just inside the X-ray room, past the
+  connecting door from the check-in room (local −Y points into the room). Reference a human there for
+  the "just arrived" pose. `<id>.json → anchors.patient_route` lists the whole route: entrance →
+  check-in room → connecting door → entrance stand → patient stand.

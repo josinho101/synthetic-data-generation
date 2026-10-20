@@ -1,8 +1,11 @@
 # -----------------------------------------------------------------------------
 # Room shell: footprint, walls, ceiling, doors and the check-in / changing room.
-# Coordinates: meters, Z-up, origin at the interior floor corner of the entrance end
+# Coordinates: meters, Z-up, origin at the X-ray room's interior floor corner of the entrance end
 #   x = 0 .. length (along the room), y = 0 .. width, z = 0 floor.
 # All dimensions are CLEAR INTERIOR dimensions; outer walls are built outside the footprint.
+# The check-in room is an annex OUTSIDE the footprint, behind the entrance-end wall (x < 0).
+# Patient route: corridor -> entrance (check-in room's outer door) -> check-in room -> connecting door
+# -> X-ray room -> entrance marker -> floor marker. The X-ray room has no other door.
 # -----------------------------------------------------------------------------
 footprint_ft: [17.7, 8.3]       # [length, width] in feet (default room 17.7 x 8.3 ft = 5.395 x 2.530 m)
 footprint_m: null               # [length, width] in meters; when set it overrides footprint_ft
@@ -11,28 +14,28 @@ footprint_m: null               # [length, width] in meters; when set it overrid
 # ceiling_height_ft wins when set (e.g. 9.0 -> 2.743 m). CLI: run_pipeline.py --height 2.9 (meters).
 ceiling_height_ft: null
 ceiling_height_m: [2.60, 3.00]  # 9 ft = 2.74 m is typical
-wall_thickness_m: 0.12          # outer walls
-partition_thickness_m: 0.10     # walls of the changing room
+wall_thickness_m: 0.12          # outer walls (X-ray room and check-in room)
 
-entrance:
+entrance:                       # outer door of the check-in room (from the corridor)
   width_m: [0.91, 1.22]         # 36-48 in (wide enough for a stretcher)
   height_m: 2.13                # 7 ft
-  open_angle_deg: [0, 90]       # 0 = closed; the door swings into the X-ray room
+  open_angle_deg: [0, 90]       # 0 = closed; the door swings out into the corridor
   edge_margin_m: 0.10           # minimum distance of the opening from a wall corner
-  long_wall_max_x_m: 2.6        # "long_wall" entrance: door centre stays within this x from the entrance end
+  min_width_m: 0.81             # a wider sampled door is narrowed to fit the check-in room wall, down to this (32 in)
 
-changing_room:                  # small check-in / changing room in a corner of the entrance end
-  length_m: [1.22, 1.52]        # along x (4-5 ft)
-  depth_m: [1.07, 1.37]         # along y (3.5-4.5 ft)
-  door_width_m: [0.76, 0.86]    # 30-34 in
+changing_room:                  # check-in / changing room outside the X-ray room (corner of the entrance end)
+  length_m: [1.22, 1.52]        # along x (4-5 ft), interior
+  depth_m: [1.07, 1.37]         # along y (3.5-4.5 ft), interior
+  door_width_m: [0.76, 0.86]    # connecting door to the X-ray room, 30-34 in
   door_height_m: 2.03
-  door_open_angle_deg: [0, 100] # swings into the changing room
+  door_open_angle_deg: [0, 100] # connecting door swings into the X-ray room
   bench_depth_m: 0.40
   bench_height_m: 0.46
   p_mirror: 0.6
   p_chair: 0.4
 
-walk:                           # the patient walk path entrance -> changing room -> floor marker must stay free
+walk:                           # patient walk paths must stay free: entrance -> connecting door (check-in room),
+                                # connecting door -> floor marker (X-ray room)
   agent_radius_m: 0.25          # half the shoulder width of a walking person
   grid_m: 0.05
   door_clearance_m: 0.80        # free zone in front of every door (inside the room)

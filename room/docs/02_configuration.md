@@ -12,9 +12,8 @@ Errors list the offending key.
 | `count`, `seed`, `id_prefix`, `id_digits` | number of rooms, global seed, ids `R0001…` |
 | `max_layout_attempts` | resamples per room before the run fails |
 | `detector_side` | `{left, right}` weights (left = north wall) |
-| `changing_room_corner` | `{north, south}` |
-| `entrance_wall` | `{west, long_wall}` |
-| `changing_door_wall` | `{east, inner}` |
+| `changing_room_corner` | `{north, south}`: corner of the check-in room, outside the X-ray room's west wall |
+| `entrance_wall` | `{west, side}`: wall of the check-in room with the entrance (outer door from the corridor); `side` = its outer side wall |
 | `wall_finish` | keys of `materials.walls` (white / beige / gray / tiled) |
 | `floor_material` | keys of `materials.floors` (vinyl / tile / concrete) |
 | `cct_class` | keys of `lighting.cct_k` (warm / neutral / cool) |
@@ -30,12 +29,13 @@ Weights are relative (they do not need to sum to 100). Set a weight to 0 to swit
 | `footprint_ft` / `footprint_m` | [length, width] clear interior; `footprint_m` wins when set; length ≥ width |
 | `ceiling_height_m` | room height: a number (fixed) or [min, max] (sampled); CLI `--height <m>` |
 | `ceiling_height_ft` | same in feet; wins when set (null = use meters) |
-| `wall_thickness_m`, `partition_thickness_m` | outer walls / changing-room walls |
-| `entrance.width_m`, `height_m`, `open_angle_deg`, `edge_margin_m`, `long_wall_max_x_m` | entrance door |
-| `changing_room.length_m`, `depth_m` | changing-room interior size ranges |
-| `changing_room.door_width_m`, `door_height_m`, `door_open_angle_deg` | its door |
+| `wall_thickness_m` | outer walls of the X-ray room and the check-in room |
+| `entrance.width_m`, `height_m`, `open_angle_deg`, `edge_margin_m` | entrance = the check-in room's outer door (swings out into the corridor) |
+| `entrance.min_width_m` | a sampled entrance wider than the check-in room wall allows is narrowed, down to this |
+| `changing_room.length_m`, `depth_m` | check-in room interior size ranges (it is built outside the footprint, at x < 0) |
+| `changing_room.door_width_m`, `door_height_m`, `door_open_angle_deg` | connecting door check-in room → X-ray room (swings into the X-ray room) |
 | `changing_room.bench_depth_m`, `bench_height_m`, `p_mirror`, `p_chair` | furniture |
-| `walk.agent_radius_m`, `grid_m`, `door_clearance_m` | walk-path check |
+| `walk.agent_radius_m`, `grid_m`, `door_clearance_m` | walk-path checks (entrance → connecting door; connecting door → marker) |
 
 ## equipment.yaml
 
@@ -112,6 +112,47 @@ colours. `clearance_m` is the gap between items.
 
 Add a camera by adding a new `cameras.<name>` entry. Disable one with `--set cameras.cameras.<name>.enabled=false`.
 
+### Exam cameras (Intel RealSense D455) — `sensors` and `exam_cameras`
+
+RGB-D cameras around the exam position, for capturing the patient's X-ray poses later. Every number
+may be fixed or `[min, max]` (sampled per room). Every `exam_cameras.defaults` key can be overridden
+per camera. The top-level `enabled: false` also switches them off.
+
+| Key | Meaning |
+|---|---|
+| `sensors.d455.depth.fov_deg`, `resolution`, `range_m`, `offset_m` | depth stream (datasheet 87° × 58°, 1280 × 720, 0.6–6 m); origin = left imager |
+| `sensors.d455.color.fov_deg`, `resolution`, `offset_m` | colour stream (90° × 65°, 1280 × 800), offset [right, up, forward] in the camera frame (approximate: use calibrated extrinsics when known) |
+| `sensors.d455.baseline_m`, `body_size_m` | stereo baseline, camera body [width, depth, height] |
+| `sensors.d455.horizontal_aperture_mm`, `clipping_range_m` | USD optics: focal = aperture / (2 tan(FOV_h / 2)), vertical aperture from FOV_v |
+| `sensors.d455.asset` | optional USD for the camera body (e.g. Isaac Sim `…/Sensors/Intel/RealSense/rsd455.usd`; frame: +X = view direction, Z up, meters) |
+| `exam_cameras.enabled` | false = no exam cameras (and no tripods) |
+| `exam_cameras.defaults.rig` | key of `sensors` (add another RGB-D model as a sibling of `d455`) |
+| `exam_cameras.defaults.streams` | `[color, depth]`; drop one to write a single camera |
+| `exam_cameras.defaults.orientation` | `landscape` or `portrait` (upright camera, tall image: FOV and resolution swapped; body drawn on its side). Defaults: Front / Left / Right portrait, Top landscape |
+| `exam_cameras.defaults.position_jitter_m`, `target_jitter_m` | per-room random offsets (0 keeps the 1.4 m / 1.0 m exact) |
+| `exam_cameras.defaults.stand` | draw the stand / bracket meshes |
+| `exam_cameras.defaults.movement_margin_m`, `body_height_m` | patient movement zone: marker outline grown by the margin, floor to body height |
+| `exam_cameras.lateral_search.angle_step_deg`, `max_swing_deg`, `footprint_m` | tripod swing around the detector centre when the side-on spot is blocked; tripod leg spread |
+| `exam_cameras.min_movement_coverage` | warn when a camera frames less of the movement zone |
+| `cameras.<name>.mount` | `detector_lateral_left` / `detector_lateral_right` (tripod), `tube_head` (bracket), `detector_top` (post + arm) or `[x, y, z]` |
+| `cameras.<name>.radius_m`, `height_m` | lateral: horizontal distance from the detector centre (1.4), lens height (1.0) |
+| `cameras.<name>.offset_m` | tube_head: [along the rail, along the beam, up] from the focal spot (default [0, −0.05, 0.25], on the tube housing) |
+| `cameras.<name>.extension_m`, `rise_m` | detector_top: arm reach out from the detector face (0.2), post height above the housing top (0.1) |
+| `cameras.<name>.target` | `patient_side` (movement-zone centre, mid-body), `patient_top` (movement-zone floor centre), any room-camera target, or `[x, y, z]` |
+| `cameras.<name>.stand_type` | `tripod`, `bracket`, `post_arm`, `none` |
+
+Examples:
+
+```bash
+--set cameras.exam_cameras.cameras.RealSense_D455_Left.radius_m=1.6                 # tripod further away
+--set cameras.exam_cameras.cameras.RealSense_D455_Left.height_m=[0.9,1.2]           # sampled lens height
+--set cameras.exam_cameras.cameras.RealSense_D455_Right.orientation=landscape
+--set cameras.exam_cameras.cameras.RealSense_D455_Top.extension_m=0.3
+--set cameras.exam_cameras.cameras.RealSense_D455_Front.enabled=false
+--set cameras.exam_cameras.defaults.streams=[depth]                       # depth cameras only
+--set cameras.exam_cameras.enabled=false                                  # no exam cameras / tripods
+```
+
 ## export.yaml
 
 | Key | Meaning |
@@ -120,8 +161,8 @@ Add a camera by adding a new `cameras.<name>` entry. Disable one with `--set cam
 | `workers`, `retries` | parallel build processes, retries per failed room |
 | `usd.file_format` | `usd` (binary crate) or `usda` (text) |
 | `usd.root_prim`, `cylinder_segments` | default prim, cylinder tessellation |
-| `placement.door_facing` | stage direction the entrance's outside faces: −Y (default, towards the viewer), +Y, −X, +X |
-| `placement.origin` | `center` (footprint centre at 0,0), `entrance_door`, `room_corner` (room frame = stage frame when the entrance is on the west wall and door_facing is −X) |
+| `placement.door_facing` | stage direction the entrance's outside (the check-in room's outer door) faces: −Y (default, towards the viewer), +Y, −X, +X |
+| `placement.origin` | `center` (X-ray room footprint centre at 0,0), `entrance_door`, `room_corner` (room frame = stage frame when the entrance is on the west wall and door_facing is −X) |
 | `placement.set_viewport_camera`, `viewer_distance_m`, `viewer_height_m` | Isaac viewport start view in front of the door (`customLayerData.cameraSettings`) and the Viewer_Entrance camera |
 | `physics.colliders`, `approximation` | `CollisionAPI` + `MeshCollisionAPI` approximation on all solid meshes |
 | `physics.props_rigid_body` | props become dynamic rigid bodies |

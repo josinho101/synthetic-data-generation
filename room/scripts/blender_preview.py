@@ -81,7 +81,7 @@ def shoot(eye, target, lens, name):
     bpy.ops.render.render(write_still=True)
 
 
-x_open = meta["changing_room"]["block"][2] + 0.15     # just past the changing room
+x_open = max(0.0, meta["changing_room"]["block"][2]) + 0.15     # just inside the X-ray room (check-in room: x < 0)
 det, focal = a["detector_center"], a["focal_spot"]
 shoot((x_open, W / 2, H - 0.25), (L, W / 2, 0.9), 13, "view1")
 shoot((L - 0.15, W / 2, H - 0.25), (0.0, W / 2, 0.9), 13, "view2")

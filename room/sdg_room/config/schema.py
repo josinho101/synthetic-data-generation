@@ -8,8 +8,7 @@ FT = 0.3048
 WEIGHT_BLOCKS = {
     "detector_side": {"left", "right"},
     "changing_room_corner": {"north", "south"},
-    "entrance_wall": {"west", "long_wall"},
-    "changing_door_wall": {"east", "inner"},
+    "entrance_wall": {"west", "side"},
     "wall_finish": None,             # keys must exist in materials.walls
     "floor_material": None,          # keys must exist in materials.floors
     "cct_class": None,               # keys must exist in lighting.cct_k
@@ -185,6 +184,98 @@ def _validate_props(errors, cfg):
             _colors(errors, f"props.items.{name}.colors", item["colors"])
 
 
+def _number_or_range(errors, where, value, lo=0.0, hi=float("inf"), strict=False):
+    """A fixed number or a [min, max] range (sampled per room)."""
+    if isinstance(value, (list, tuple)):
+        _range(errors, where, value, lo, hi)
+    elif not isinstance(value, (int, float)) or isinstance(value, bool) or not (lo <= value <= hi) or \
+            (strict and value <= lo):
+        errors.append(f"{where}: number or [min, max] {'>' if strict else '>='} {lo} (got {value!r})")
+
+
+def _validate_sensor(errors, where, sensor):
+    if not isinstance(sensor, dict):
+        errors.append(f"{where}: must be a mapping")
+        return
+    for stream in ("color", "depth"):
+        st = sensor.get(stream)
+        if st is None:
+            continue
+        fov = st.get("fov_deg")
+        if not (isinstance(fov, list) and len(fov) == 2 and all(isinstance(v, (int, float)) and 0 < v < 180 for v in fov)):
+            errors.append(f"{where}.{stream}.fov_deg: [horizontal, vertical] in (0, 180)")
+        res = st.get("resolution")
+        if not (isinstance(res, list) and len(res) == 2 and all(isinstance(v, int) and v > 0 for v in res)):
+            errors.append(f"{where}.{stream}.resolution: [width, height] in pixels")
+        if st.get("range_m") is not None:
+            _range(errors, f"{where}.{stream}.range_m", st["range_m"], 0.0, 1000.0)
+        off = st.get("offset_m", [0.0, 0.0, 0.0])
+        if not (isinstance(off, list) and len(off) == 3 and all(isinstance(v, (int, float)) for v in off)):
+            errors.append(f"{where}.{stream}.offset_m: [right, up, forward] in meters")
+    if not (isinstance(sensor.get("horizontal_aperture_mm", 20.955), (int, float)) and
+            sensor.get("horizontal_aperture_mm", 20.955) > 0):
+        errors.append(f"{where}.horizontal_aperture_mm: number > 0")
+    _range(errors, f"{where}.clipping_range_m", sensor.get("clipping_range_m", [0.05, 20.0]), 1e-4, 1e6)
+
+
+def _validate_exam_cameras(errors, cams):
+    from ..layout.cameras import EXAM_MOUNTS, EXAM_TARGETS, STAND_TYPES
+    ex = cams.get("exam_cameras")
+    if not ex:
+        return
+    sensors = cams.get("sensors") or {}
+    for key, sensor in sensors.items():
+        _validate_sensor(errors, f"cameras.sensors.{key}", sensor)
+    targets = set(EXAM_TARGETS) | {"room_center", "floor_marker", "detector", "checkin_center", "checkin_door",
+                                   "entrance_door"}
+    search = ex.get("lateral_search") or {}
+    for key in ("angle_step_deg", "footprint_m"):
+        if key in search:
+            _number_or_range(errors, f"cameras.exam_cameras.lateral_search.{key}", search[key], 0.0, strict=True)
+    if "max_swing_deg" in search:
+        _number_or_range(errors, "cameras.exam_cameras.lateral_search.max_swing_deg", search["max_swing_deg"], 0.0, 90.0)
+    defaults = ex.get("defaults") or {}
+    for name, own in (ex.get("cameras") or {}).items():
+        c = {**defaults, **(own or {})}
+        where = f"cameras.exam_cameras.cameras.{name}"
+        if not c.get("enabled", True):
+            continue
+        rig = c.get("rig")
+        if rig not in sensors:
+            errors.append(f"{where}.rig: one of the sensors {sorted(sensors)} (got {rig!r})")
+        else:
+            streams = c.get("streams", ["color", "depth"])
+            if not (isinstance(streams, list) and streams and all(sensors[rig].get(s) for s in streams)):
+                errors.append(f"{where}.streams: non-empty list of streams defined in cameras.sensors.{rig}")
+        mount, target = c.get("mount"), c.get("target")
+        if not (mount in EXAM_MOUNTS or (isinstance(mount, list) and len(mount) == 3)):
+            errors.append(f"{where}.mount: one of {list(EXAM_MOUNTS)} or [x, y, z] (got {mount!r})")
+        if not (target in targets or (isinstance(target, list) and len(target) == 3)):
+            errors.append(f"{where}.target: one of {sorted(targets)} or [x, y, z] (got {target!r})")
+        if c.get("orientation", "landscape") not in ("landscape", "portrait"):
+            errors.append(f"{where}.orientation: landscape | portrait")
+        if c.get("stand_type", "none") not in STAND_TYPES:
+            errors.append(f"{where}.stand_type: one of {list(STAND_TYPES)}")
+        if mount in ("detector_lateral_left", "detector_lateral_right"):
+            _number_or_range(errors, f"{where}.radius_m", c.get("radius_m"), 0.0, 20.0, strict=True)
+            _number_or_range(errors, f"{where}.height_m", c.get("height_m"), 0.0, 10.0, strict=True)
+        if mount == "detector_top":
+            _number_or_range(errors, f"{where}.extension_m", c.get("extension_m", 0.2), 0.0, 5.0)
+            _number_or_range(errors, f"{where}.rise_m", c.get("rise_m", 0.1), 0.0, 5.0)
+        if mount == "tube_head":
+            off = c.get("offset_m", [0.0, -0.05, 0.25])
+            if not (isinstance(off, list) and len(off) == 3):
+                errors.append(f"{where}.offset_m: [along rail, along beam, up] (numbers or [min, max])")
+            else:
+                for k, v in enumerate(off):
+                    _number_or_range(errors, f"{where}.offset_m[{k}]", v, -5.0, 5.0)
+        for key in ("position_jitter_m", "target_jitter_m", "movement_margin_m"):
+            if key in c:
+                _number_or_range(errors, f"{where}.{key}", c[key], 0.0, 5.0)
+        if "body_height_m" in c:
+            _number_or_range(errors, f"{where}.body_height_m", c["body_height_m"], 0.0, 3.0, strict=True)
+
+
 def _validate_cameras(errors, cfg):
     from ..placement import FACING
     cams = cfg.get("cameras") or {}
@@ -221,6 +312,7 @@ def _validate_cameras(errors, cfg):
         for key in ("search_step_m", "walk_spacing_m", "room_grid_m"):
             if not isinstance(cov.get(key), (int, float)) or cov[key] <= 0:
                 errors.append(f"cameras.coverage.{key}: number > 0")
+    _validate_exam_cameras(errors, cams)
     place = cfg["export"].get("placement") or {}
     if place.get("door_facing", "-Y") not in FACING:
         errors.append(f"export.placement.door_facing: one of {sorted(FACING)}")

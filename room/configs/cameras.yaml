@@ -1,9 +1,11 @@
 # -----------------------------------------------------------------------------
 # Cameras written into every room USD (UsdGeom.Camera under /Room/Cameras/<name>).
-# Positions are solved per room from the layout; "left/right" = seen from the entrance looking in.
-#   mount:  far_wall_left | far_wall_right   high corners of the wall opposite the entrance
-#           checkin_corner                   changing-room corner farthest from its door
-#           entrance_outside                 outside the entrance (export.placement viewer distance/height)
+# Positions are solved per room from the layout; "left/right" = seen from the X-ray room's entry (the connecting
+# door from the check-in room in the west wall) looking in (+X).
+#   mount:  far_wall_left | far_wall_right   high corners of the east wall (opposite the connecting door)
+#           checkin_corner                   check-in room corner farthest from the connecting door
+#           entrance_outside                 outside the entrance = the check-in room's outer door
+#                                            (export.placement viewer distance/height)
 #           [x, y, z]                        fixed position (room frame, meters)
 #   target: room_center | floor_marker | detector | checkin_center | checkin_door | entrance_door | [x, y, z]
 # Any key of `defaults` can be overridden per camera. Set enabled: false to drop a camera.
@@ -47,17 +49,17 @@ coverage:
   room_grid_m: 0.5
 
 cameras:
-  Cam_FarLeft:
+  CeilingCam_FarLeft:
     enabled: true
     mount: far_wall_left
     auto_frame: true               # aim + lens from coverage (target / focal_length_mm / jitter ignored)
     target: room_center            # used only when auto_frame is false
-  Cam_FarRight:
+  CeilingCam_FarRight:
     enabled: true
     mount: far_wall_right
     auto_frame: true
     target: room_center
-  Cam_CheckIn:
+  CeilingCam_CheckIn:
     enabled: true
     mount: checkin_corner
     target: checkin_center
@@ -73,3 +75,93 @@ cameras:
     position_jitter_m: 0.0
     target_jitter_m: 0.0
     housing: false
+
+# -----------------------------------------------------------------------------
+# Exam cameras: Intel RealSense D455 RGB-D cameras around the exam position. They record the patient's
+# X-ray poses in a later pipeline. Each one is written as an Xform /Room/Cameras/<name> (look-at pose) with
+# two UsdGeom.Camera children, Color and Depth, plus its stand hardware under /Room/Cameras/<name>_Mount.
+# Cameras keep fixed room-frame poses (not parented to the equipment); `attached_to` in the metadata says
+# which part they belong to.
+#   left / right = the patient's left / right while facing the detector (= seen from the tube).
+# The top-level `enabled: false` above switches these off too.
+#   mount:  detector_lateral_left | detector_lateral_right   tripod beside the patient, radius_m from the
+#                                                             detector centre (horizontal), lens at height_m
+#           tube_head      bracket on the tube head; offset_m in the tube-head frame
+#                          [along the rail, along the beam towards the detector, up], from the focal spot
+#           detector_top   post on top of the detector housing (rise_m) + arm reaching extension_m out from
+#                          the detector face into the room
+#           [x, y, z]      fixed position (room frame, meters)
+#   target: patient_side   centre of the patient movement zone at mid-body height (side view)
+#           patient_top    floor centre of the movement zone (top-down view)
+#           room_center | floor_marker | detector | checkin_center | checkin_door | entrance_door | [x, y, z]
+#   orientation: landscape | portrait (upright camera, tall image: FOV and resolution swapped, e.g. depth
+#                58 x 87 deg at 720 x 1280; the D455 body is drawn on its side). Every camera aims at the patient
+#                and its USD focusDistance is the distance to that point.
+# Any number below may be a fixed value or [min, max] (sampled per room). Any `defaults` key can be
+# overridden per camera; enabled: false drops a camera. CLI: --set exam_cameras... is under cameras.*, e.g.
+#   --set cameras.exam_cameras.cameras.RealSense_D455_Left.radius_m=1.6
+# -----------------------------------------------------------------------------
+sensors:
+  d455:                            # Intel RealSense D455 (datasheet values)
+    body_size_m: [0.124, 0.029, 0.026]   # [width, depth along the view, height]
+    baseline_m: 0.095              # stereo baseline (left imager -> right imager)
+    depth:                         # depth stream origin = left imager
+      fov_deg: [87.0, 58.0]        # [horizontal, vertical]
+      resolution: [1280, 720]
+      range_m: [0.6, 6.0]          # usable depth range (min Z ~0.52 m at 1280x720; 0.6 m ideal)
+      offset_m: [0.0, 0.0, 0.0]    # camera frame: [right, up, forward]
+    color:
+      fov_deg: [90.0, 65.0]
+      resolution: [1280, 800]
+      offset_m: [-0.059, 0.0, 0.0] # approximate RGB position relative to the left imager; use calibrated extrinsics when known
+    horizontal_aperture_mm: 20.955 # USD optics: focal = aperture / (2 tan(FOV_h / 2))
+    clipping_range_m: [0.05, 20.0]
+    asset: null                    # optional USD of the camera body (e.g. Isaac Sim .../Sensors/Intel/RealSense/rsd455.usd)
+
+exam_cameras:
+  enabled: true
+  defaults:
+    rig: d455                      # key of `sensors`
+    streams: [color, depth]        # drop one to write a single camera
+    orientation: landscape
+    position_jitter_m: 0.0         # random offset per axis (lateral cameras keep radius / height exact when 0)
+    target_jitter_m: 0.0
+    stand: true                    # draw the stand / bracket hardware (label camera_stand, no collider)
+    movement_margin_m: 0.30        # movement zone = floor-marker outline grown by this (where the patient moves)
+    body_height_m: 1.85            # top of the movement zone (tallest patient)
+  lateral_search:                  # tripod spot when the side-on spot is blocked (changing room, wall, walk path)
+    angle_step_deg: 10.0           # swing around the detector centre at the same radius
+    max_swing_deg: 80.0
+    footprint_m: 0.55              # tripod leg spread (floor obstacle)
+  min_movement_coverage: 0.9       # warn when a camera frames less than this fraction of the movement zone
+  cameras:
+    RealSense_D455_Left:
+      enabled: true
+      mount: detector_lateral_left
+      radius_m: 1.4                # horizontal distance from the detector centre
+      height_m: 1.0                # lens height
+      stand_type: tripod
+      orientation: portrait        # 87 deg vertical: feet to head side-on at ~1.3 m
+      target: patient_side
+    RealSense_D455_Right:
+      enabled: true
+      mount: detector_lateral_right
+      radius_m: 1.4
+      height_m: 1.0
+      stand_type: tripod
+      orientation: portrait
+      target: patient_side
+    RealSense_D455_Front:
+      enabled: true
+      mount: tube_head
+      offset_m: [0.0, -0.05, 0.25] # on top of the tube housing, facing the patient (along the beam)
+      target: patient_side         # patient centre; `detector` aims at the detector centre instead
+      orientation: portrait        # full body (feet to head) at ~1.2 m
+      stand_type: bracket
+    RealSense_D455_Top:
+      enabled: true
+      mount: detector_top
+      extension_m: 0.20            # arm reaches 0.2 m out from the detector face
+      rise_m: 0.10                 # post height above the detector housing top
+      target: patient_top          # looks down at the floor of the movement zone
+      stand_type: post_arm

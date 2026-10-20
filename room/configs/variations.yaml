@@ -13,15 +13,14 @@ max_layout_attempts: 50         # a room whose layout cannot be solved is resamp
 #   left = north wall (y = width), right = south wall (y = 0). The tube rail goes on the other long wall.
 detector_side: {left: 50, right: 50}
 
-# Corner of the check-in / changing room at the entrance end (x = 0): north (y = width) or south (y = 0)
+# The check-in / changing room is OUTSIDE the X-ray room, against its entrance-end wall (x < 0), in the
+# north (y = width) or south (y = 0) corner. The patient enters the check-in room from the corridor, then
+# walks into the X-ray room through the connecting door in the shared wall (the only way in).
 changing_room_corner: {north: 50, south: 50}
 
-# Entrance door: on the short wall at the entrance end (x = 0), or on the long wall opposite the
-# changing room close to the entrance end. "west" falls back to "long_wall" when it does not fit.
-entrance_wall: {west: 60, long_wall: 40}
-
-# Door of the changing room: on its side facing into the room (east) or on its long side (inner)
-changing_door_wall: {east: 50, inner: 50}
+# Entrance = outer door of the check-in room (from the corridor): on its west wall, or on its outer side wall
+# (in line with the X-ray room's north / south wall). Falls back to the other wall when it does not fit.
+entrance_wall: {west: 60, side: 40}
 
 wall_finish: {white: 35, beige: 25, gray: 25, tiled: 15}
 floor_material: {vinyl: 45, tile: 35, concrete: 20}

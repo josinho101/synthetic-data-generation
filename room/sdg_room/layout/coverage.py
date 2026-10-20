@@ -125,10 +125,15 @@ def occluders(spec: dict, cfg: dict) -> np.ndarray:
         heights[lay["patient_support"]["kind"]] = lay["patient_support"]["size_m"][2]
     heights.update(bench=0.46, changing_chair=0.85)
     for name, rect in lay["obstacles"].items():
-        if name in ("wall_stand", "tube_stand"):
+        if name in ("wall_stand", "tube_stand") or name.startswith("camera_stand_"):
             continue
         z1 = H if name.startswith("partition") or name == "wall_conduit" else heights.get(name, 1.0)
         boxes.append(_box(Rect.from_list(rect), 0.0, z1))
+
+    # exam-camera tripods: thin legs, only the camera head blocks a view
+    for stand in (lay.get("exam_cameras") or {}).values():
+        x, y, z = stand["position"]
+        boxes.append(_box(Rect.centered(x, y, 0.15, 0.15), z - 0.05, z + 0.05))
 
     # wall stand: column (to its top) + detector housing around the carriage height
     ws, ws_cfg, det = eq["wall_stand"], eq_cfg["wall_stand"], eq_cfg["detector"]

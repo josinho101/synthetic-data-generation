@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-from pxr import Gf, UsdGeom
+from pxr import Gf, Sdf, UsdGeom
 
 from ..materials.library import build_room_materials
 from ..photometry import room_lighting
@@ -68,6 +68,9 @@ def _place_root(stage, root, spec, cfg, place: Placement) -> None:
     set_custom(root, "door_facing", place.door_facing)
     out = entrance_outward(spec)
     set_custom(root, "entrance_outward_room", [out[0], out[1], 0.0])
+    lay = spec["layout"]                 # outside the X-ray room footprint: check-in room + outward entrance swing
+    for key, rect in (("checkin_block", lay["changing_room"]["block"]), ("entrance_swing", lay["entrance"]["swing"])):
+        root.CreateAttribute(f"sdg:{key}", Sdf.ValueTypeNames.Double4, custom=True).Set(Gf.Vec4d(*rect))
     set_custom(root, "placement_origin", place.origin_mode)
     pcfg = cfg["export"].get("placement") or {}
     if pcfg.get("set_viewport_camera", True):

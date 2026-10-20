@@ -87,7 +87,6 @@ def sample_spec(cfg: dict, index: int, room_id: str, rng, attempt: int, room_see
         "detector_side": weighted_choice(rng, var["detector_side"]),
         "changing_room_corner": weighted_choice(rng, var["changing_room_corner"]),
         "entrance_wall": weighted_choice(rng, var["entrance_wall"]),
-        "changing_door_wall": weighted_choice(rng, var["changing_door_wall"]),
         "patient_support": support,
         "tube_column_type": weighted_choice(rng, var["tube_column_type"]),
         "cct_class": cct_class,

@@ -1,4 +1,5 @@
-"""Room shell: floor, outer walls with the entrance opening, ceiling, doors and the changing room."""
+"""Room shell: floor, outer walls, ceiling and doors of the X-ray room, and the check-in / changing room annex outside
+its entrance-end wall (own floor, ceiling, walls, the outer entrance door and the connecting door)."""
 
 import math
 
@@ -85,10 +86,8 @@ def build_shell(ctx, materials):
     ctx.box(str(ceiling.GetPath()), "CeilingSlab", (L + 2 * t, W + 2 * t, CEILING_T), (L / 2, W / 2, H + CEILING_T / 2),
             ceil_mat, ceil_uv)
 
-    ent = lay["entrance"]
-    openings = {"south": [], "north": [], "west": [], "east": []}
-    along = ent["center"][1] if ent["axis"] == "y" else ent["center"][0]
-    openings[ent["wall"]].append((along, ent["width"], ent["height"]))
+    con = lay["changing_room"]["door"]                  # connecting door check-in room -> X-ray room (west wall)
+    openings = {"south": [], "north": [], "west": [(con["center"][1], con["width"], con["height"])], "east": []}
     walls = ctx.group(f"{sp}/Walls", label="wall")
     wp = str(walls.GetPath())
     _wall(ctx, wp, "South", "x", -t, L + t, -t, 0.0, openings["south"], top, wall_mat, wall_uv)
@@ -96,16 +95,14 @@ def build_shell(ctx, materials):
     _wall(ctx, wp, "West", "y", 0.0, W, -t, 0.0, openings["west"], top, wall_mat, wall_uv)
     _wall(ctx, wp, "East", "y", 0.0, W, L, L + t, openings["east"], top, wall_mat, wall_uv)
 
+    # entrance = outer door of the check-in room (in its wall, built by build_changing_room), swings out
+    ent = lay["entrance"]
     doors = ctx.group(f"{sp}/Doors")
-    leaf, frame = materials["door_leaf"], materials["door_frame"]
-    if ent["axis"] == "y":
-        face, normal = 0.0, 1
-    elif ent["wall"] == "south":
-        face, normal = 0.0, 1
-    else:
-        face, normal = W, -1
-    entrance = _door(ctx, str(doors.GetPath()), "Entrance", ent["axis"], along, ent["width"], ent["height"], face, normal,
-                     ent["hinge"], ent["open_angle_deg"], t, leaf, frame)
+    along = ent["center"][1] if ent["axis"] == "y" else ent["center"][0]
+    n = ent["out_normal"][0] if ent["axis"] == "y" else ent["out_normal"][1]
+    face = ent["plane"][1] if n > 0 else ent["plane"][0]
+    entrance = _door(ctx, str(doors.GetPath()), "Entrance", ent["axis"], along, ent["width"], ent["height"], face, n,
+                     ent["hinge"], ent["open_angle_deg"], t, materials["door_leaf"], materials["door_frame"])
     return {"entrance": entrance}
 
 
@@ -113,27 +110,40 @@ def build_changing_room(ctx, materials):
     spec, lay = ctx.spec, ctx.spec["layout"]
     cr = lay["changing_room"]
     H = spec["ceiling_height_m"]
-    pt = ctx.cfg["room"]["partition_thickness_m"]
+    t = ctx.cfg["room"]["wall_thickness_m"]
     wall_mat, wall_uv = materials["wall"]
     grp = ctx.group(f"{ctx.root}/CheckIn")
     gp = str(grp.GetPath())
-    walls = ctx.group(f"{gp}/Walls", label="wall")
-    door = cr["door"]
-    east, inner = Rect.from_list(cr["partition_east"]), Rect.from_list(cr["partition_inner"])
-    op_e = [(door["center"][1], door["width"], door["height"])] if door["wall"] == "east" else []
-    op_i = [(door["center"][0], door["width"], door["height"])] if door["wall"] == "inner" else []
-    _wall(ctx, str(walls.GetPath()), "East", "y", east.y0, east.y1, east.x0, east.x1, op_e, H, wall_mat, wall_uv)
-    _wall(ctx, str(walls.GetPath()), "Inner", "x", inner.x0, inner.x1, inner.y0, inner.y1, op_i, H, wall_mat, wall_uv)
+    it, block = Rect.from_list(cr["interior"]), Rect.from_list(cr["block"])
+    north = cr["corner"] == "north"
 
-    out_n = door["out_normal"]
-    if door["axis"] == "y":
-        face = door["plane"][0] if out_n[0] > 0 else door["plane"][1]
-        normal, along = -out_n[0], door["center"][1]
-    else:
-        face = door["plane"][0] if out_n[1] > 0 else door["plane"][1]
-        normal, along = -out_n[1], door["center"][0]
-    info = _door(ctx, gp, "Door", door["axis"], along, door["width"], door["height"], face, normal, door["hinge"],
-                 door["open_angle_deg"], pt, materials["door_leaf"], materials["door_frame"])
+    # annex floor + ceiling (the X-ray room's west wall is the shared wall)
+    floor = ctx.group(f"{gp}/Floor", label="floor")
+    floor_mat, floor_uv = materials["floor"]
+    ctx.box(str(floor.GetPath()), "FloorSlab", (block.sx, block.sy, FLOOR_T), (block.cx, block.cy, -FLOOR_T / 2),
+            floor_mat, floor_uv)
+    ceiling = ctx.group(f"{gp}/Ceiling", label="ceiling")
+    ceil_mat, ceil_uv = materials["ceiling"]
+    ctx.box(str(ceiling.GetPath()), "CeilingSlab", (block.sx, block.sy, CEILING_T), (block.cx, block.cy, H + CEILING_T / 2),
+            ceil_mat, ceil_uv)
+
+    # walls: west, outer (in line with the X-ray room's north / south wall) and inner; the entrance opens in one
+    ent = lay["entrance"]
+    on_west = ent["placed_on"] == "west"
+    op_w = [(ent["center"][1], ent["width"], ent["height"])] if on_west else []
+    op_o = [] if on_west else [(ent["center"][0], ent["width"], ent["height"])]
+    top = H + CEILING_T
+    walls = ctx.group(f"{gp}/Walls", label="wall")
+    wp = str(walls.GetPath())
+    _wall(ctx, wp, "West", "y", block.y0, block.y1, block.x0, it.x0, op_w, top, wall_mat, wall_uv)
+    outer, inner = ((it.y1, block.y1), (block.y0, it.y0)) if north else ((block.y0, it.y0), (it.y1, block.y1))
+    _wall(ctx, wp, "Outer", "x", it.x0, block.x1, outer[0], outer[1], op_o, top, wall_mat, wall_uv)
+    _wall(ctx, wp, "Inner", "x", it.x0, block.x1, inner[0], inner[1], [], top, wall_mat, wall_uv)
+
+    # connecting door in the shared west wall of the X-ray room, swings into the X-ray room
+    door = cr["door"]
+    info = _door(ctx, gp, "Door", "y", door["center"][1], door["width"], door["height"], door["plane"][1], 1,
+                 door["hinge"], door["open_angle_deg"], t, materials["door_leaf"], materials["door_frame"])
 
     # bench
     b = cr["bench"]

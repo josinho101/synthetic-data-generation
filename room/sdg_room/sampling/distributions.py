@@ -95,3 +95,8 @@ def jitter_color(rng: random.Random, hex_color: str, jitter: dict) -> str:
     s = min(max(s + rng.uniform(-1, 1) * jitter.get("sat", 0.0), 0.0), 1.0)
     v = min(max(v + rng.uniform(-1, 1) * jitter.get("val", 0.0), 0.0), 1.0)
     return rgb_to_hex(colorsys.hsv_to_rgb(h, s, v))
+
+
+def number(rng: random.Random, value) -> float:
+    """A config value that is either a fixed number or a [min, max] range sampled per room."""
+    return float(uniform(rng, value)) if isinstance(value, (list, tuple)) else float(value)
