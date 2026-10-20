@@ -55,8 +55,10 @@ glare_levels:
   mild: {roughness: [0.22, 0.40], clearcoat: [0.3, 0.6]}
   strong: {roughness: [0.08, 0.18], clearcoat: [0.8, 1.0]}
 equipment:
-  body_colors: ["#eceeef", "#f4f4f2", "#e2e5e8"]     # painted plastic housings
+  body_colors: ["#c8cdd2", "#cfd1cd", "#bcc3ca"]     # painted housings: light greys, a shade darker than white walls
+  min_wall_delta_e: 10.0                            # body colour darkened until its Delta E to the walls is at
+                                                    # least this (visible under white / camera light)
   accent_colors: ["#5b6670", "#2f3a45", "#6c7d8c"]   # column trims, collimator
   metal_roughness: [0.15, 0.30]                     # chrome handles / rail
   metal_color: "#c4c8cc"
-  detector_front_color: "#f7f7f5"
+  detector_front_color: "#e4e6e7"

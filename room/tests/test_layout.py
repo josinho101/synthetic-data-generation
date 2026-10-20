@@ -108,3 +108,40 @@ def test_tape_contrasts_with_the_floor(specs, cfg):
     need = cfg["equipment"]["floor_marker"]["min_floor_delta_e"]
     for s in specs:
         assert delta_e(s["layout"]["marker"]["tape_color"], s["floor"]["color"]) >= need - 0.5, s["id"]
+
+
+def _geometry(layout):
+    """Layout without the appearance values stored in it (colours)."""
+    import json
+    skip = ("marker", "patient_support", "changing_room")
+    return json.dumps({k: v for k, v in layout.items() if k not in skip}, sort_keys=True)
+
+
+def test_fixed_layout_same_geometry_varied_appearance(cfg):
+    """randomize_layout false (default): one layout for every room; walls, floor, CCT, lux still vary."""
+    assert cfg["variations"]["randomize_layout"] is False
+    specs = [build_room_spec(cfg, i) for i in range(6)]
+    assert len({_geometry(s["layout"]) for s in specs}) == 1
+    assert len({(s["ceiling_height_m"], s["detector_side"], s["patient_support"]) for s in specs}) == 1
+    assert len({(s["walls"]["color"], s["floor"]["color"], s["cct_k"], s["lux_target"]) for s in specs}) == 6
+    other = build_room_spec(apply_overrides(cfg, {"variations.layout_seed": 7}), 0)
+    assert _geometry(other["layout"]) != _geometry(specs[0]["layout"])
+
+
+def test_randomized_layout_option(cfg):
+    c = apply_overrides(cfg, {"variations.randomize_layout": True})
+    assert len({_geometry(build_room_spec(c, i)["layout"]) for i in range(4)}) == 4
+
+
+def test_detector_opposite_checkin_at_far_end(cfg):
+    """The detector (and its tripods) is on the long wall away from the check-in room, as far from the connecting
+    door as possible: the patient's way in stays free."""
+    c = apply_overrides(cfg, {"variations.randomize_layout": True})
+    for i in range(8):
+        s = build_room_spec(c, i)
+        lay = s["layout"]
+        assert lay["equipment"]["detector_wall"] == ("south" if lay["changing_room"]["corner"] == "north" else "north")
+        door = lay["changing_room"]["door"]["center"]
+        for stand in lay["exam_cameras"].values():
+            x, y = stand["position"][:2]
+            assert math.hypot(x - door[0], y - door[1]) > 2.0, s["id"]

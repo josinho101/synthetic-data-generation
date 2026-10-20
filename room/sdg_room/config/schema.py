@@ -69,6 +69,10 @@ def _validate_variations(errors, cfg):
         errors.append("variations.count: must be an integer >= 1")
     if not isinstance(var.get("seed"), int):
         errors.append("variations.seed: must be an integer")
+    if not isinstance(var.get("randomize_layout", True), bool):
+        errors.append("variations.randomize_layout: true | false")
+    if var.get("layout_seed") is not None and not isinstance(var["layout_seed"], int):
+        errors.append("variations.layout_seed: integer or null")
     allowed_from = {"wall_finish": set(cfg["materials"].get("walls") or {}),
                     "floor_material": set(cfg["materials"].get("floors") or {}),
                     "cct_class": set(cfg["lighting"].get("cct_k") or {})}
@@ -104,6 +108,10 @@ def _validate_room(errors, cfg):
 def _validate_equipment(errors, cfg):
     eq = cfg["equipment"]
     ws, tube = eq.get("wall_stand") or {}, eq.get("tube_stand") or {}
+    if ws.get("placement", "far_end") not in ("far_end", "random"):
+        errors.append("equipment.wall_stand.placement: far_end | random")
+    if ws.get("wall", "opposite_checkin") not in ("opposite_checkin", "sampled"):
+        errors.append("equipment.wall_stand.wall: opposite_checkin | sampled")
     _range(errors, "equipment.wall_stand.carriage_travel_m", ws.get("carriage_travel_m"), 0.0, 3.0)
     _range(errors, "equipment.wall_stand.detector_center_height_m", ws.get("detector_center_height_m"), 0.0, 3.0)
     travel, height = ws.get("carriage_travel_m") or [0, 0], ws.get("detector_center_height_m") or [0, 0]
@@ -263,7 +271,7 @@ def _validate_exam_cameras(errors, cams):
             _number_or_range(errors, f"{where}.extension_m", c.get("extension_m", 0.2), 0.0, 5.0)
             _number_or_range(errors, f"{where}.rise_m", c.get("rise_m", 0.1), 0.0, 5.0)
         if mount == "tube_head":
-            off = c.get("offset_m", [0.0, -0.05, 0.25])
+            off = c.get("offset_m", [0.0, 0.20, 0.16])
             if not (isinstance(off, list) and len(off) == 3):
                 errors.append(f"{where}.offset_m: [along rail, along beam, up] (numbers or [min, max])")
             else:
@@ -272,6 +280,8 @@ def _validate_exam_cameras(errors, cams):
         for key in ("position_jitter_m", "target_jitter_m", "movement_margin_m"):
             if key in c:
                 _number_or_range(errors, f"{where}.{key}", c[key], 0.0, 5.0)
+        if c.get("tilt_deg") is not None:
+            _number_or_range(errors, f"{where}.tilt_deg", c["tilt_deg"], -89.0, 89.0)
         if "body_height_m" in c:
             _number_or_range(errors, f"{where}.body_height_m", c["body_height_m"], 0.0, 3.0, strict=True)
 

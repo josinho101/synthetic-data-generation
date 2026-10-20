@@ -211,7 +211,11 @@ class _Layout:
             r_lo, r_hi = max(lo, self._wall_block_x(det_wall) + reach), min(hi, self.L - reach)
             if r_lo <= r_hi:
                 lo, hi = r_lo, r_hi
-        if self.spec["patient_support"] == "none":
+        if ws.get("placement", "far_end") == "far_end":
+            # as far from the connecting door (x = 0) as the end wall and the exam-camera tripods allow: the patient
+            # walks in without passing the stand or a tripod, and the free stretch near the door suits a table
+            det_x = hi
+        elif self.spec["patient_support"] == "none":
             det_x = lo + e["detector_x_u"] * (hi - lo)
         else:   # keep a long free stretch for the table / stretcher: stand close to the far end wall
             det_x = max(lo, hi - e["detector_x_u"] * 0.6)
@@ -315,7 +319,7 @@ class _Layout:
         self.out["exam_cameras"] = {}
         if not ex:
             return
-        rng = random.Random(f"{self.spec['seed']}:{self.spec.get('attempt', 0)}:exam_stands")
+        rng = random.Random(f"{self.spec.get('layout_seed', self.spec['seed'])}:{self.spec.get('attempt', 0)}:exam_stands")
         search = ex.get("lateral_search") or {}
         step = math.radians(float(search.get("angle_step_deg", 10.0)))
         max_swing = math.radians(float(search.get("max_swing_deg", 80.0)))

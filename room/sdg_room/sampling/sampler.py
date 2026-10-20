@@ -64,7 +64,12 @@ def _sample_props(rng, props_cfg):
     return wanted, cable_runs
 
 
-def sample_spec(cfg: dict, index: int, room_id: str, rng, attempt: int, room_seed: int) -> dict:
+def sample_spec(cfg: dict, index: int, room_id: str, rng, attempt: int, room_seed: int, lrng=None) -> dict:
+    """All random choices of one room. `rng` draws the appearance (finishes, colours, lighting); `lrng` draws
+    everything that shapes the layout (room size and height, doors, check-in room, equipment geometry, props,
+    panels). With variations.randomize_layout = false the manifest passes the same `lrng` stream to every room,
+    so all rooms share one layout and only their appearance changes."""
+    lrng = lrng or rng
     var, room, eq, mat, light, props = (cfg[k] for k in ("variations", "room", "equipment", "materials",
                                                          "lighting", "props"))
     length, width = footprint_m(room)
@@ -72,54 +77,70 @@ def sample_spec(cfg: dict, index: int, room_id: str, rng, attempt: int, room_see
     ws, tube, marker = eq["wall_stand"], eq["tube_stand"], eq["floor_marker"]
 
     sid_hi = min(tube["sid_m"][1], max_sid(eq, width))
+    # --- layout (lrng) ---
+    layout_seed = lrng.randrange(1 << 31)
+    ceiling = _r(uniform(lrng, ceiling_range_m(room)), 3)
+    detector_side = weighted_choice(lrng, var["detector_side"])
+    corner = weighted_choice(lrng, var["changing_room_corner"])
+    if ws.get("wall", "opposite_checkin") == "opposite_checkin":
+        # detector (and the tripods beside it) on the long wall away from the check-in room and its connecting
+        # door: the patient walks in along the free side; left = north wall, right = south wall
+        detector_side = "right" if corner == "north" else "left"
+    entrance_wall = weighted_choice(lrng, var["entrance_wall"])
+    support = weighted_choice(lrng, var["patient_support"])
+    column_type = weighted_choice(lrng, var["tube_column_type"])
+    panel_size = weighted_choice(lrng, light["panels"]["size_weights"])
+    panel_count = int_range(lrng, light["panels"]["count_exam"])
+    entrance = {"width_m": _r(uniform(lrng, room["entrance"]["width_m"]), 3),
+                "open_angle_deg": _r(uniform(lrng, room["entrance"]["open_angle_deg"]), 1),
+                "hinge": lrng.choice(["lo", "hi"]), "u": lrng.random()}
+    changing = {"length_m": _r(uniform(lrng, cr["length_m"]), 3), "depth_m": _r(uniform(lrng, cr["depth_m"]), 3),
+                "door_width_m": _r(uniform(lrng, cr["door_width_m"]), 3),
+                "door_open_angle_deg": _r(uniform(lrng, cr["door_open_angle_deg"]), 1),
+                "hinge": lrng.choice(["lo", "hi"]), "u": lrng.random(),
+                "mirror": lrng.random() < cr["p_mirror"], "chair": lrng.random() < cr["p_chair"],
+                "hooks": int_range(lrng, props["changing_room"]["hook_count"])}
+    equipment = {
+        "detector_center_height_m": _r(uniform(lrng, ws["detector_center_height_m"]), 3),
+        "wall_stand_column_height_m": _r(uniform(lrng, ws["column_height_m"]), 3),
+        "detector_x_u": lrng.random(),
+        "top_bar": lrng.random() < eq["handles"]["p_top_bar"],
+        "sid_m": _r(uniform(lrng, [tube["sid_m"][0], sid_hi]), 3),
+        "rail_length_m": _r(uniform(lrng, tube["rail_length_m"]), 3),
+        "rail_shift_u": lrng.random(),
+        "tube_column_height_m": _r(uniform(lrng, tube["column_height_m"]), 3),
+        "stand_gap_m": _r(uniform(lrng, marker["stand_gap_m"]), 3),
+        "detector_face_offset_m": _r(detector_face_offset(eq)),
+    }
+    wanted_props, cable_runs = _sample_props(lrng, props)
+    # --- appearance (rng) ---
     cct_class = weighted_choice(rng, var["cct_class"])
-    panel_size = weighted_choice(rng, light["panels"]["size_weights"])
     lux = light["lux"]
-    support = weighted_choice(rng, var["patient_support"])
-    wanted_props, cable_runs = _sample_props(rng, props)
+    changing.update(gown_colors=[rng.choice(props["changing_room"]["gown_colors"]) for _ in range(3)],
+                    bench_color=rng.choice(props["changing_room"]["bench_colors"]))
+    equipment["tape_color"] = rng.choice(marker["tape_colors"])
 
     spec = {
-        "id": room_id, "index": index, "seed": room_seed, "attempt": attempt,
+        "id": room_id, "index": index, "seed": room_seed, "attempt": attempt, "layout_seed": layout_seed,
+        "layout_randomized": bool(var.get("randomize_layout", True)),
         "footprint_m": [_r(length), _r(width)],
-        "ceiling_height_m": _r(uniform(rng, ceiling_range_m(room)), 3),
+        "ceiling_height_m": ceiling,
         "wall_finish": weighted_choice(rng, var["wall_finish"]),
         "floor_material": weighted_choice(rng, var["floor_material"]),
-        "detector_side": weighted_choice(rng, var["detector_side"]),
-        "changing_room_corner": weighted_choice(rng, var["changing_room_corner"]),
-        "entrance_wall": weighted_choice(rng, var["entrance_wall"]),
+        "detector_side": detector_side,
+        "changing_room_corner": corner,
+        "entrance_wall": entrance_wall,
         "patient_support": support,
-        "tube_column_type": weighted_choice(rng, var["tube_column_type"]),
+        "tube_column_type": column_type,
         "cct_class": cct_class,
         "cct_k": _r(uniform(rng, light["cct_k"][cct_class]), 0),
         "lux_target": _r(truncated_normal(rng, lux["mean"], lux["sd"], lux["min"], lux["max"]), 1),
         "changing_lux_target": _r(uniform(rng, light["panels"]["changing_lux"]), 1),
         "panel_size": panel_size,
-        "panel_count": int_range(rng, light["panels"]["count_exam"]),
-        "entrance": {"width_m": _r(uniform(rng, room["entrance"]["width_m"]), 3),
-                     "open_angle_deg": _r(uniform(rng, room["entrance"]["open_angle_deg"]), 1),
-                     "hinge": rng.choice(["lo", "hi"]), "u": rng.random()},
-        "changing_room": {"length_m": _r(uniform(rng, cr["length_m"]), 3),
-                          "depth_m": _r(uniform(rng, cr["depth_m"]), 3),
-                          "door_width_m": _r(uniform(rng, cr["door_width_m"]), 3),
-                          "door_open_angle_deg": _r(uniform(rng, cr["door_open_angle_deg"]), 1),
-                          "hinge": rng.choice(["lo", "hi"]), "u": rng.random(),
-                          "mirror": rng.random() < cr["p_mirror"], "chair": rng.random() < cr["p_chair"],
-                          "hooks": int_range(rng, props["changing_room"]["hook_count"]),
-                          "gown_colors": [rng.choice(props["changing_room"]["gown_colors"]) for _ in range(3)],
-                          "bench_color": rng.choice(props["changing_room"]["bench_colors"])},
-        "equipment": {
-            "detector_center_height_m": _r(uniform(rng, ws["detector_center_height_m"]), 3),
-            "wall_stand_column_height_m": _r(uniform(rng, ws["column_height_m"]), 3),
-            "detector_x_u": rng.random(),
-            "top_bar": rng.random() < eq["handles"]["p_top_bar"],
-            "sid_m": _r(uniform(rng, [tube["sid_m"][0], sid_hi]), 3),
-            "rail_length_m": _r(uniform(rng, tube["rail_length_m"]), 3),
-            "rail_shift_u": rng.random(),
-            "tube_column_height_m": _r(uniform(rng, tube["column_height_m"]), 3),
-            "stand_gap_m": _r(uniform(rng, marker["stand_gap_m"]), 3),
-            "tape_color": rng.choice(marker["tape_colors"]),
-            "detector_face_offset_m": _r(detector_face_offset(eq)),
-        },
+        "panel_count": panel_count,
+        "entrance": entrance,
+        "changing_room": changing,
+        "equipment": equipment,
         "walls": None, "floor": None,
         "door_color": rng.choice(mat["doors"]["colors"]),
         "finish": _sample_equipment_finish(rng, mat),
@@ -135,6 +156,11 @@ def sample_spec(cfg: dict, index: int, room_id: str, rng, attempt: int, room_see
     if spec["floor"]["color"] != sampled:
         spec["floor"]["color_sampled"] = sampled          # before the floor / wall contrast correction
     spec["floor"]["delta_e_to_wall"] = round(delta_e(spec["floor"]["color"], spec["walls"]["color"]), 2)
+    min_eq = float(mat["equipment"].get("min_wall_delta_e", 0.0))        # equipment stands out from the walls
+    body = spec["finish"]["body_color"]
+    spec["finish"]["body_color"] = separate_color(body, spec["walls"]["color"], min_eq)
+    if spec["finish"]["body_color"] != body:
+        spec["finish"]["body_color_sampled"] = body
     tape = spec["equipment"]["tape_color"]
     spec["equipment"]["tape_color"] = separate_color(tape, spec["floor"]["color"], float(marker.get("min_floor_delta_e", 0.0)))
     if spec["equipment"]["tape_color"] != tape:

@@ -11,7 +11,9 @@ Errors list the offending key.
 |---|---|
 | `count`, `seed`, `id_prefix`, `id_digits` | number of rooms, global seed, ids `R0001…` |
 | `max_layout_attempts` | resamples per room before the run fails |
-| `detector_side` | `{left, right}` weights (left = north wall) |
+| `randomize_layout` | false (default): every room has the same layout, and only the appearance changes (see 01 §1.4); true: every room gets its own layout |
+| `layout_seed` | which fixed layout (null = `seed`); only used when `randomize_layout` is false |
+| `detector_side` | `{left, right}` weights (left = north wall); only used with `equipment.wall_stand.wall: sampled` |
 | `changing_room_corner` | `{north, south}`: corner of the check-in room, outside the X-ray room's west wall |
 | `entrance_wall` | `{west, side}`: wall of the check-in room with the entrance (outer door from the corridor); `side` = its outer side wall |
 | `wall_finish` | keys of `materials.walls` (white / beige / gray / tiled) |
@@ -41,6 +43,8 @@ Weights are relative (they do not need to sum to 100). Set a weight to 0 to swit
 
 | Key | Meaning |
 |---|---|
+| `wall_stand.wall` | `opposite_checkin` (default): detector on the long wall away from the check-in room / connecting door; `sampled`: by `variations.detector_side` |
+| `wall_stand.placement` | `far_end` (default): as far from the connecting door as the tripods allow; `random`: sampled along the wall |
 | `wall_stand.asset` | external USD for the whole wall stand (origin at the wall, +Y into the room) |
 | `wall_stand.column_size_m`, `column_height_m`, `base_size_m`, `wall_gap_m` | stand geometry |
 | `wall_stand.carriage_travel_m` | detector centre height limits (written as `sdg:travel_min/max`) |
@@ -67,7 +71,8 @@ Weights are relative (they do not need to sum to 100). Set a weight to 0 to swit
 | `ceiling` | acoustic tile colour, 2 ft grid, T-bar colour |
 | `doors` | leaf colours, frame colour |
 | `glare`, `glare_levels` | none / mild / strong → roughness and clearcoat ranges of the equipment paint |
-| `equipment` | body / accent colours, chrome roughness, detector front colour |
+| `equipment` | body / accent colours (body: light greys, a shade darker than white walls), chrome roughness, detector front colour |
+| `equipment.min_wall_delta_e` | minimum CIELAB ΔE between the equipment body and the wall colour (default 10); a closer body colour is darkened, so the equipment stays visible under white / camera light. `<id>.json → equipment.finish.body_color_sampled` = before correction |
 
 ## lighting.yaml
 
@@ -136,7 +141,9 @@ per camera. The top-level `enabled: false` also switches them off.
 | `exam_cameras.min_movement_coverage` | warn when a camera frames less of the movement zone |
 | `cameras.<name>.mount` | `detector_lateral_left` / `detector_lateral_right` (tripod), `tube_head` (bracket), `detector_top` (post + arm) or `[x, y, z]` |
 | `cameras.<name>.radius_m`, `height_m` | lateral: horizontal distance from the detector centre (1.4), lens height (1.0) |
-| `cameras.<name>.offset_m` | tube_head: [along the rail, along the beam, up] from the focal spot (default [0, −0.05, 0.25], on the tube housing) |
+| `cameras.<name>.offset_m` | tube_head: [along the rail, along the beam, up] from the focal spot (default [0, 0.20, 0.16]: centred on the beam line, above the front of the collimator) |
+| `cameras.<name>.tilt_deg` | optional: look at the target's x, y but pitched this much below horizontal (Front: 10) |
+| `cameras.<name>.min_movement_coverage` | per-camera override of `exam_cameras.min_movement_coverage` (Front: 0.6) |
 | `cameras.<name>.extension_m`, `rise_m` | detector_top: arm reach out from the detector face (0.2), post height above the housing top (0.1) |
 | `cameras.<name>.target` | `patient_side` (movement-zone centre, mid-body), `patient_top` (movement-zone floor centre), any room-camera target, or `[x, y, z]` |
 | `cameras.<name>.stand_type` | `tripod`, `bracket`, `post_arm`, `none` |

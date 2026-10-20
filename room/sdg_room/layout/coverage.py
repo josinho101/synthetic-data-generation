@@ -154,8 +154,14 @@ def occluders(spec: dict, cfg: dict) -> np.ndarray:
     boxes.append(_box(transform_rect(Rect(cx - colw / 2, ro - cold / 2, cx + colw / 2, ro + cold / 2), ox, oy, yaw),
                       0.0, col_top))
     hl, hr = t_cfg["housing_length_m"], t_cfg["housing_radius_m"]
-    head = Rect(cx - hl / 2 - 0.03, ro, cx + hl / 2 + 0.03, ts["focal_offset_m"] + collimator_front(t_cfg))
     ch = t_cfg["collimator_size_m"][2]
+    f_off = ts["focal_offset_m"]
+    # thin horizontal arm from the column to the tube head (a long arm in a wide room must not act as a wall)
+    aw, ah = t_cfg["arm_size_m"]
+    arm = Rect(cx - aw / 2 - 0.03, ro, cx + aw / 2 + 0.03, max(ro, f_off - hr))
+    boxes.append(_box(transform_rect(arm, ox, oy, yaw), h - ah / 2 - 0.15, h + ah / 2 + 0.03))   # incl. sleeve
+    # tube housing + collimator around the focal spot
+    head = Rect(cx - hl / 2 - 0.03, f_off - hr, cx + hl / 2 + 0.03, f_off + collimator_front(t_cfg))
     boxes.append(_box(transform_rect(head, ox, oy, yaw), h - max(hr, ch / 2) - 0.05, h + max(hr, ch / 2)))
     return np.array(boxes, dtype=float).reshape(-1, 6)
 

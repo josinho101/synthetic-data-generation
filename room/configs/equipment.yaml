@@ -14,7 +14,11 @@ wall_stand:
   wall_gap_m: 0.02              # column distance from the wall
   carriage_travel_m: [0.45, 1.80]   # detector centre height limits (adjustable height)
   detector_center_height_m: [1.20, 1.60]   # sampled height for this room (standing chest)
-  x_margin_m: 0.45              # min distance of the stand centre from an end wall / the changing room
+  x_margin_m: 0.45              # min distance of the stand centre from an end wall
+  wall: opposite_checkin        # opposite_checkin: on the long wall away from the check-in room / connecting door;
+                                # sampled: variations.detector_side
+  placement: far_end            # far_end: as far from the connecting door as possible (tripods and stand stay out of
+                                # the patient's way in); random: sampled along the wall (old behaviour)
 
 detector:
   housing_size_m: [0.52, 0.56, 0.09]   # [width, height, depth]

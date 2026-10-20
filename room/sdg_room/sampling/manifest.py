@@ -17,24 +17,44 @@ def room_id(cfg: dict, index: int) -> str:
     return f"{var.get('id_prefix', 'R')}{index + 1:0{int(var.get('id_digits', 4))}d}"
 
 
+# fixed layout: (config fingerprint, layout seed) -> (first accepted attempt, rejection reasons before it). All rooms
+# share the layout, so they all start at that attempt instead of repeating the same rejected ones.
+_FIXED_LAYOUT_ATTEMPT = {}
+
+
+def _fingerprint(cfg: dict, lseed: int) -> str:
+    import hashlib
+    data = json.dumps({k: v for k, v in cfg.items() if not k.startswith("_")}, sort_keys=True, default=str)
+    return hashlib.sha1(f"{lseed}:{data}".encode()).hexdigest()
+
+
 def build_room_spec(cfg: dict, index: int) -> dict:
     """Sample one room; resample (attempt + 1) until its layout can be solved."""
     var = cfg["variations"]
     rid = room_id(cfg, index)
     errors = []
     attempts = int(var.get("max_layout_attempts", 50))
-    for attempt in range(attempts):
+    # randomize_layout false: every room uses the layout streams of one fixed layout (layout_seed, index 0), so all
+    # rooms share the same layout and only the appearance (spec stream, per room) changes
+    fixed = not var.get("randomize_layout", True)
+    lseed = var.get("layout_seed") if var.get("layout_seed") is not None else var["seed"]
+    lseed, lidx = (lseed, 0) if fixed else (var["seed"], index)
+    key = _fingerprint(cfg, lseed) if fixed else None
+    first = 0
+    if key in _FIXED_LAYOUT_ATTEMPT:
+        first, known = _FIXED_LAYOUT_ATTEMPT[key]
+        errors = list(known)
+    for attempt in range(first, attempts):
         rng = room_rng(var["seed"], index, attempt, "spec")
         room_seed = rng.randrange(1 << 31)
-        spec = sample_spec(cfg, index, rid, rng, attempt, room_seed)
+        spec = sample_spec(cfg, index, rid, rng, attempt, room_seed, room_rng(lseed, lidx, attempt, "layout_spec"))
         try:
-            spec["layout"] = solve_layout(cfg, spec, room_rng(var["seed"], index, attempt, "layout"))
+            spec["layout"] = solve_layout(cfg, spec, room_rng(lseed, lidx, attempt, "layout"))
         except LayoutError as exc:
             errors.append(str(exc))
             _LOG.debug(f"{rid}: attempt {attempt} rejected: {exc}")
             continue
-        spec["cameras"], spec["camera_coverage"] = solve_cameras(cfg, spec, room_rng(var["seed"], index, attempt,
-                                                                                    "cameras"))
+        spec["cameras"], spec["camera_coverage"] = solve_cameras(cfg, spec, room_rng(lseed, lidx, attempt, "cameras"))
         short = _coverage_shortfall(cfg, spec["camera_coverage"])
         cov_cfg = cfg["cameras"].get("coverage") or {}
         if short and cov_cfg.get("enforce", True) and attempt < attempts - 1:
@@ -42,8 +62,10 @@ def build_room_spec(cfg: dict, index: int) -> dict:
             _LOG.debug(f"{rid}: attempt {attempt} rejected: camera coverage {short}")
             continue
         spec["layout"]["warnings"] += [f"room cameras see only {s_}" for s_ in short]
-        spec["cameras"] += solve_exam_cameras(cfg, spec, room_rng(var["seed"], index, attempt, "exam_cameras"))
+        spec["cameras"] += solve_exam_cameras(cfg, spec, room_rng(lseed, lidx, attempt, "exam_cameras"))
         spec["layout_rejections"] = errors
+        if key:
+            _FIXED_LAYOUT_ATTEMPT[key] = (attempt, list(errors))
         return spec
     raise LayoutError(f"{rid}: no valid layout after {len(errors)} attempts; last reasons: {errors[-3:]}")
 

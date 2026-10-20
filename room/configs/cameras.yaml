@@ -94,6 +94,7 @@ cameras:
 #   target: patient_side   centre of the patient movement zone at mid-body height (side view)
 #           patient_top    floor centre of the movement zone (top-down view)
 #           room_center | floor_marker | detector | checkin_center | checkin_door | entrance_door | [x, y, z]
+#   tilt_deg: optional; aim horizontally at the target's x, y but pitched tilt_deg below horizontal
 #   orientation: landscape | portrait (upright camera, tall image: FOV and resolution swapped, e.g. depth
 #                58 x 87 deg at 720 x 1280; the D455 body is drawn on its side). Every camera aims at the patient
 #                and its USD focusDistance is the distance to that point.
@@ -134,6 +135,7 @@ exam_cameras:
     max_swing_deg: 80.0
     footprint_m: 0.55              # tripod leg spread (floor obstacle)
   min_movement_coverage: 0.9       # warn when a camera frames less than this fraction of the movement zone
+                                   # (per camera: cameras.<name>.min_movement_coverage)
   cameras:
     RealSense_D455_Left:
       enabled: true
@@ -154,9 +156,11 @@ exam_cameras:
     RealSense_D455_Front:
       enabled: true
       mount: tube_head
-      offset_m: [0.0, -0.05, 0.25] # on top of the tube housing, facing the patient (along the beam)
-      target: patient_side         # patient centre; `detector` aims at the detector centre instead
-      orientation: portrait        # full body (feet to head) at ~1.2 m
+      offset_m: [0.0, 0.20, 0.16]  # centred on the beam line, just above the front of the collimator
+      target: patient_side         # looks at the patient (standing on the floor marker)
+      tilt_deg: 10                 # view pitched this much below horizontal (instead of aiming at the target height)
+      min_movement_coverage: 0.6   # with the 10 deg tilt the lower legs / feet are below the frame (expected)
+      orientation: portrait
       stand_type: bracket
     RealSense_D455_Top:
       enabled: true

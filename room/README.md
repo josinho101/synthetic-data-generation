@@ -48,8 +48,12 @@ Every room has:
   a blocked side-on spot swings around the detector at the same radius;
 - **placement on import**: the room is centred on the stage origin and turned so the **entrance door
   faces the viewer** (−Y by default), and Isaac opens the file with the viewport in front of the door;
-- **variations**: wall finish (white / beige / gray / tiled), floor (vinyl / tile / concrete),
-  detector on the **left or right** wall, check-in room corner, door positions and angles, **table
+- **fixed layout, varied appearance** (default, `variations.randomize_layout: false`): every room has the
+  same layout, and only walls, floor, colours, colour temperature and lux change. The detector always
+  stands on the long wall opposite the check-in room, at the far end from the connecting door, so the
+  stand and the camera tripods are never in the patient's way;
+- **variations** (with `randomize_layout: true` for the layout ones): wall finish (white / beige / gray / tiled),
+  floor (vinyl / tile / concrete), check-in room corner, door positions and angles, **table
   or stretcher or neither**, clutter (chairs, lead-apron rack, mobile lead screen, generator
   cabinet, waste bin, step stool, cable runs). Colours are jittered per room, and the floor always
   differs from the walls by at least ΔE 10 (`materials.min_floor_wall_delta_e`).

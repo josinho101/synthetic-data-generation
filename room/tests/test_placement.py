@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "isaac"))
 
 @pytest.mark.parametrize("facing", sorted(FACING))
 def test_entrance_faces_the_configured_direction(cfg, facing):
-    c = apply_overrides(cfg, {"export.placement.door_facing": facing})
+    c = apply_overrides(cfg, {"export.placement.door_facing": facing, "variations.randomize_layout": True})
     walls = set()
     for i in range(12):
         spec = build_room_spec(c, i)

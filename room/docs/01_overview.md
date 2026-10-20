@@ -70,10 +70,13 @@ check-in room is the only way into the X-ray room.
    side wall (in line with the X-ray room's north / south wall), by `entrance_wall` weight, falling
    back to the other wall when it does not fit. A sampled width wider than the wall allows is narrowed,
    down to `entrance.min_width_m` (noted in `layout_notes`). It swings out into the corridor.
-3. **Wall stand** on the detector wall, at least `x_margin_m` from the end walls. With side exam
-   cameras, it is also kept one tripod reach (about 1.6 m) from each end wall, so that both tripods
-   fit at 1.4 m. When a table or stretcher is requested, the stand goes towards the far end of that
-   range so the table has room.
+3. **Wall stand** on the detector wall. That is the long wall **opposite the check-in room**
+   (`wall_stand.wall: opposite_checkin`), at the **far end** from the connecting door
+   (`wall_stand.placement: far_end`). The patient walks in along the free side, and neither the stand
+   nor the exam-camera tripods are in the way; the free stretch near the door takes the table or
+   stretcher. The stand is kept `x_margin_m` from the end walls and, with side exam cameras, one tripod
+   reach (about 1.6 m) from them so both tripods fit at 1.4 m. `wall: sampled` / `placement: random`
+   restore the old behaviour (side by `detector_side` weight, position sampled along the wall).
 4. **Tube stand** on the opposite wall. The rail length is clipped to the free wall, and its centre
    is shifted so the carriage reaches the stand position. Arm length = width − detector face offset
    − SID − rail/column/housing offsets (≥ `arm_min_length_m`). The SID range is clipped to what fits.
@@ -122,8 +125,9 @@ check-in room is the only way into the X-ray room.
     * `RealSense_D455_Left` / `RealSense_D455_Right`: on their tripods, lens at 1.0 m, **portrait** (upright camera, tall
       image, 87° vertical: feet to head side-on), aimed at the centre of the patient movement zone (marker outline +
       `movement_margin_m`, floor to `body_height_m`).
-    * `RealSense_D455_Front`: on top of the tube housing (`offset_m` in the tube-head frame), facing the patient
-      along the beam, portrait, aimed at the patient's centre.
+    * `RealSense_D455_Front`: centred on the beam line just above the front of the collimator (`offset_m` in the
+      tube-head frame), portrait, looking along the beam at the patient, tilted `tilt_deg` (10°) below
+      horizontal. At that tilt the lower legs / feet fall below the frame (its own `min_movement_coverage` 0.6).
     * `RealSense_D455_Top`: post on the detector housing top (`rise_m`) with an arm reaching `extension_m` (0.2 m)
       out from the detector face; landscape, it looks down at the patient (aimed at the floor centre of the movement zone, image
       width along the detector wall).
@@ -134,12 +138,26 @@ check-in room is the only way into the X-ray room.
       is expected for `RealSense_D455_Top` (a tall patient's head) and is reported as a note plus
       `within_depth_range: false`.
 
-## 1.4 Distributions
+## 1.4 Fixed or randomized layout
+
+`variations.randomize_layout` (default **false**) decides what changes from room to room:
+
+| | `false` (default) | `true` |
+|---|---|---|
+| layout: room height, check-in room size / corner, doors (size, position, swing angle), detector side / height, SID, tube column, table / stretcher, props and their positions, light panels, all camera poses | one fixed layout for every room (`layout_seed`, null = `seed`) | sampled per room |
+| appearance: wall finish + colour, floor material + colour, door / equipment / tape / bench / gown / table colours, CCT, lux | sampled per room | sampled per room |
+
+The sampler draws the two groups from separate random streams (`layout_spec` and `spec`). With a
+fixed layout, every room replays the same layout stream, and the first accepted layout attempt is
+reused, so each room costs one layout solve. A different `layout_seed` gives another fixed layout.
+
+## 1.5 Distributions
 
 Categorical choices are independent weighted draws. They are not exact quotas as in
 synthetic-humans, because layout rejections would break quotas. For small counts (e.g. 3 rooms) the
 achieved shares therefore differ from the weights; `summary.json` shows configured vs achieved.
 Two rules shift the shares slightly: a room is resampled when its layout fails, and the entrance
-falls back to the check-in room's other wall when it does not fit. In the default 17.7 × 8.3 ft room,
-the two 1.4 m tripods leave little floor beside the detector, so a requested table or stretcher is
-dropped in roughly half the rooms (noted in `layout_notes`; `rooms.csv → support_placed`).
+falls back to the check-in room's other wall when it does not fit. With the detector at the far end,
+a requested table or stretcher fits in the free stretch near the door in nearly all rooms (a dropped
+one is noted in `layout_notes`; `rooms.csv → support_placed`). With a fixed layout all shares are of
+the single layout, except the appearance choices.

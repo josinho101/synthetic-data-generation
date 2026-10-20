@@ -244,7 +244,7 @@ def _exam_mount(spec, cfg, name, c, rng):
             raise ValueError(f"exam camera {name}: no tripod spot in the layout")
         return list(stand["position"]), "floor", {"stand_rect": stand["stand_rect"], "swing_deg": stand["swing_deg"]}
     if mount == "tube_head":
-        ox, oy, oz = (number(rng, v) for v in c.get("offset_m", [0.0, -0.05, 0.25]))
+        ox, oy, oz = (number(rng, v) for v in c.get("offset_m", [0.0, 0.20, 0.16]))
         fx, fy, fz = eq["focal_spot"]
         a = math.radians(eq["tube_stand"]["yaw_deg"])
         eye = [fx + ox * math.cos(a) - oy * math.sin(a), fy + ox * math.sin(a) + oy * math.cos(a), fz + oz]
@@ -301,6 +301,9 @@ def solve_exam_cameras(cfg: dict, spec: dict, rng) -> list:
         if tj > 0:
             target = [target[0] + rng.uniform(-tj, tj), target[1] + rng.uniform(-tj, tj), target[2]]
         eye = [min(max(eye[0], 0.05), L - 0.05), min(max(eye[1], 0.05), W - 0.05), min(max(eye[2], 0.05), H - 0.05)]
+        if c.get("tilt_deg") is not None:     # look at the target's x, y, pitched tilt_deg below horizontal
+            d = math.hypot(target[0] - eye[0], target[1] - eye[1])
+            target = [target[0], target[1], eye[2] - d * math.tan(math.radians(number(rng, c["tilt_deg"])))]
         fwd = np.array(target, float) - np.array(eye, float)
         fwd /= np.linalg.norm(fwd)
         # camera stays upright (portrait = tall image via swapped optics); looking down: image top away from the
@@ -311,7 +314,7 @@ def solve_exam_cameras(cfg: dict, spec: dict, rng) -> list:
         mcov = {"body": round(frame_fraction(eye, fwd, up, zone["body"], tan_h, tan_v), 3),
                 "floor": round(frame_fraction(eye, fwd, up, zone["floor"], tan_h, tan_v), 3)}
         key = "floor" if c.get("target") == "patient_top" else "body"
-        if mcov[key] < min_cov:
+        if mcov[key] < float(c.get("min_movement_coverage", min_cov)):
             warnings.append(f"exam camera {name} frames only {100 * mcov[key]:.0f}% of the patient movement zone ({key})")
         rng_d = (sensor.get("depth") or {}).get("range_m")
         pts = np.concatenate([zone["body"], zone["floor"]])

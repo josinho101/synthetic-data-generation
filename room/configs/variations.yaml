@@ -9,9 +9,16 @@ id_prefix: "R"                  # room ids: R0001, R0002, ...
 id_digits: 4
 max_layout_attempts: 50         # a room whose layout cannot be solved is resampled (new sub-seed) this many times
 
+# Layout randomization. false: every room gets the SAME layout (room height, check-in room and doors, detector side,
+# equipment geometry, SID, table / stretcher, props and their positions, light panels, cameras); only the appearance
+# changes per room (wall / floor finish and colours, door and equipment colours, tape colour, CCT, lux).
+# true: every room also gets its own layout. layout_seed picks which fixed layout (null = `seed`).
+randomize_layout: false
+layout_seed: null
+
 # Detector (wall bucky) wall, seen from the entrance end of the room looking into the room (+X):
 #   left = north wall (y = width), right = south wall (y = 0). The tube rail goes on the other long wall.
-detector_side: {left: 50, right: 50}
+detector_side: {left: 50, right: 50}   # used only with equipment.wall_stand.wall: sampled
 
 # The check-in / changing room is OUTSIDE the X-ray room, against its entrance-end wall (x < 0), in the
 # north (y = width) or south (y = 0) corner. The patient enters the check-in room from the corridor, then

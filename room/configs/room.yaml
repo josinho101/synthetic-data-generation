@@ -7,7 +7,7 @@
 # Patient route: corridor -> entrance (check-in room's outer door) -> check-in room -> connecting door
 # -> X-ray room -> entrance marker -> floor marker. The X-ray room has no other door.
 # -----------------------------------------------------------------------------
-footprint_ft: [17.7, 8.3]       # [length, width] in feet (default room 17.7 x 8.3 ft = 5.395 x 2.530 m)
+footprint_ft: [20, 15]       # [length, width] in feet (default room 17.7 x 8.3 ft = 5.395 x 2.530 m)
 footprint_m: null               # [length, width] in meters; when set it overrides footprint_ft
 
 # Room (ceiling) height: a single number = fixed height, [min, max] = sampled per room.

@@ -84,7 +84,8 @@ def test_every_exam_camera_focused_on_the_patient(specs):
             assert math.hypot(tx - sx, ty - sy) < 0.3, (s["id"], c["name"])
             eye = np.array(c["position"])
             assert c["focus_distance_m"] == pytest.approx(float(np.linalg.norm(np.array(c["target"]) - eye)), abs=1e-3)
-            assert c["movement_coverage"]["body" if c["name"] != "RealSense_D455_Top" else "floor"] >= 0.85
+            if c["name"] != "RealSense_D455_Front":           # front: 10 deg tilt, lower legs below the frame
+                assert c["movement_coverage"]["body" if c["name"] != "RealSense_D455_Top" else "floor"] >= 0.85
 
 
 def test_source_camera_on_tube_facing_patient(specs):
@@ -93,8 +94,10 @@ def test_source_camera_on_tube_facing_patient(specs):
         c = _cams(s)["RealSense_D455_Front"]
         assert np.linalg.norm(np.array(c["position"]) - np.array(eq["focal_spot"])) < 0.3
         beam = np.array(eq["beam_axis"], float)
-        assert _view(c) @ beam > 0.7          # along the beam, tilted down to the patient centre
-        assert c["movement_coverage"]["body"] >= 0.9, (s["id"], c["movement_coverage"])
+        assert _view(c) @ beam > 0.95         # along the beam, centred on it
+        assert c["position"][0] == pytest.approx(eq["focal_spot"][0], abs=1e-3)
+        assert math.degrees(math.asin(-_view(c)[2])) == pytest.approx(10.0, abs=0.05)    # 10 deg tilt down (0.1 mm rounding)
+        assert c["movement_coverage"]["body"] >= 0.6, (s["id"], c["movement_coverage"])   # feet below the frame
 
 
 def test_top_camera_extends_from_detector_and_looks_down(cfg, specs):
