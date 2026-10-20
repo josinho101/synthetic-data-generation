@@ -1,0 +1,37 @@
+# -----------------------------------------------------------------------------
+# Runtime and USD export settings.
+# -----------------------------------------------------------------------------
+output_root: /home/gehc-1/Joseph/SandBox/synthetic-data-generation/output/rooms   # each run -> <output_root>/run-<timestamp>/
+run_dir_format: "run-%Y%m%d-%H%M%S"
+min_python: "3.10"
+
+workers: 2                      # parallel build processes (a room takes ~1-3 s)
+retries: 1
+est_mb_per_room: 15             # used for the free-disk check
+
+usd:
+  file_format: usd              # usd (binary crate) | usda (text)
+  meters_per_unit: 1.0
+  up_axis: Z
+  root_prim: /Room
+  cylinder_segments: 24
+
+# Placement on the Isaac Sim stage (root prim transform). The room is rotated so the entrance door's outside
+# faces `door_facing` (towards the viewer) whichever wall the entrance was sampled on.
+placement:
+  door_facing: "-Y"             # -Y | +Y | -X | +X
+  origin: center                # center (footprint centre at 0,0) | entrance_door | room_corner (room frame origin)
+  set_viewport_camera: true     # Isaac opens the room file with the perspective view in front of the door
+  viewer_distance_m: 6.0        # viewport / Viewer_Entrance camera distance outside the door
+  viewer_height_m: 2.0
+
+physics:
+  colliders: true               # UsdPhysics.CollisionAPI on shell, equipment and props (static)
+  approximation: convexHull     # MeshCollisionAPI approximation for every collider
+  props_rigid_body: false       # true: props become dynamic rigid bodies (they can be pushed)
+
+semantics: true                 # class labels (Isaac Semantics schema + UsdSemantics labels)
+
+preview:
+  plan_px_per_m: 160            # top-down floor plan PNG resolution
+  contact_sheet_columns: 4

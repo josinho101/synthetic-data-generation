@@ -12,7 +12,7 @@ import omni.usd
 from pxr import Gf, Usd, UsdGeom, UsdSkel
 
 HUMANS = [
-    "/path/to/output/run-XXXX/humans/H0001/H0001_anim.usda",
+    "/path/to/output/humans/run-XXXX/humans/H0001/H0001_anim.usda",
 ]
 OFFSET_M = 1.5               # spacing between humans along X
 PRINT_LANDMARKS = True

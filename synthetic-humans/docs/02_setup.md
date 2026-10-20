@@ -166,7 +166,7 @@ See [06_landmarks.md](06_landmarks.md) for how to refine an anchor by hand.
 
 ## 2.7 Output directory
 
-`export.output_root` (default `/home/gehc-1/Joseph/SandBox/synthetic-data-generation/output`)
+`export.output_root` (default `/home/gehc-1/Joseph/SandBox/synthetic-data-generation/output/humans`)
 must be writable. Each run creates `run-<timestamp>` inside it. Override per run with
 `--output-root`.
 
@@ -192,7 +192,7 @@ Example output:
 [preflight] OK   gpu (bake)        OPTIX:Tesla T4
 [preflight] OK   clothing assets   all fixed clothing assets present
 [preflight] OK   landmark anchors  26 anchors calibrated
-[preflight] OK   output dir        /…/output writable, 80.1 GB free (need ~9.0 GB)
+[preflight] OK   output dir        /…/output/humans writable, 80.1 GB free (need ~9.0 GB)
 [preflight] PASSED
 ```
 

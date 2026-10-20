@@ -1,0 +1,75 @@
+# -----------------------------------------------------------------------------
+# Cameras written into every room USD (UsdGeom.Camera under /Room/Cameras/<name>).
+# Positions are solved per room from the layout; "left/right" = seen from the entrance looking in.
+#   mount:  far_wall_left | far_wall_right   high corners of the wall opposite the entrance
+#           checkin_corner                   changing-room corner farthest from its door
+#           entrance_outside                 outside the entrance (export.placement viewer distance/height)
+#           [x, y, z]                        fixed position (room frame, meters)
+#   target: room_center | floor_marker | detector | checkin_center | checkin_door | entrance_door | [x, y, z]
+# Any key of `defaults` can be overridden per camera. Set enabled: false to drop a camera.
+# Focal length / aperture are in mm (Isaac Sim convention); FOV_h = 2 atan(aperture / (2 f)).
+# -----------------------------------------------------------------------------
+enabled: true
+
+defaults:
+  focal_length_mm: [12.0, 16.0]   # sampled per room (~82-66 deg horizontal FOV)
+  horizontal_aperture_mm: 20.955
+  clipping_range_m: [0.05, 50.0]
+  resolution: [1280, 720]         # stored as sdg:resolution (used for Replicator render products)
+  ceiling_gap_m: 0.25             # lens below the ceiling
+  corner_inset_m: 0.20            # lens distance from the side wall
+  wall_offset_m: 0.12             # lens distance from the wall it is mounted on
+  position_jitter_m: 0.05         # random offset per axis (variation between rooms)
+  target_jitter_m: 0.15           # random offset of the look-at point (x, y)
+  housing: true                   # small camera housing + ceiling arm (label security_camera, no collider)
+
+# Coverage framing of the X-ray room cameras (auto_frame: true): every patient action should be visible.
+# Sample points: patient standing on the floor marker (feet..head, arms out), the walk path entrance ->
+# changing room -> marker, the patient lying on the table / stretcher, and the exam floor (full room view).
+# For each camera the solver tries mount positions from its corner towards the middle of the far wall, aims at
+# the points, picks the longest lens that still frames them (within focal_length_mm) and checks occlusion by
+# the equipment / props / partitions (3-D boxes). The best-scoring position wins.
+coverage:
+  focal_length_mm: [6.5, 18.0]    # allowed lens range (6.5 mm ~ 116 x 84 deg at 16:9)
+  margin: 0.06                    # extra frame around the points
+  search_step_m: 0.10
+  search_fraction: 0.5            # search up to this fraction of the far wall from the camera's corner
+  occlusion: true
+  weights: {marker: 4, walk_path: 3, walk_feet: 1, support: 1, room: 1}
+  # union of the room cameras must reach these fractions; otherwise the room layout is resampled (the last
+  # attempt is kept with a warning). walk_path = hips + head along the walk; walk_feet / room are only reported.
+  required: {marker: 1.0, walk_path: 0.95, support: 0.9}
+  enforce: true
+  marker_heights_m: [0.05, 0.5, 0.9, 1.3, 1.6, 1.85]
+  walk_heights_m: [1.0, 1.7]      # hips, head
+  feet_height_m: 0.1
+  walk_spacing_m: 0.4
+  room_grid_m: 0.5
+
+cameras:
+  Cam_FarLeft:
+    enabled: true
+    mount: far_wall_left
+    auto_frame: true               # aim + lens from coverage (target / focal_length_mm / jitter ignored)
+    target: room_center            # used only when auto_frame is false
+  Cam_FarRight:
+    enabled: true
+    mount: far_wall_right
+    auto_frame: true
+    target: room_center
+  Cam_CheckIn:
+    enabled: true
+    mount: checkin_corner
+    target: checkin_center
+    focal_length_mm: [9.0, 11.0]   # wider: the changing room is small
+    ceiling_gap_m: 0.20
+    corner_inset_m: 0.15
+    wall_offset_m: 0.15
+  Viewer_Entrance:                 # view in front of the door (same as the Isaac viewport start view)
+    enabled: true
+    mount: entrance_outside
+    target: entrance_door
+    focal_length_mm: [18.0, 18.0]
+    position_jitter_m: 0.0
+    target_jitter_m: 0.0
+    housing: false

@@ -39,10 +39,10 @@ Exit codes: `0` all humans ok/warn · `1` at least one human failed · `2` confi
 .venv/bin/python scripts/run_pipeline.py
 
 # 5. interrupted (Ctrl+C, reboot)? continue where it stopped
-.venv/bin/python scripts/run_pipeline.py --resume --run-dir output/run-20261018-153012
+.venv/bin/python scripts/run_pipeline.py --resume --run-dir output/humans/run-20261018-153012
 
 # 6. rebuild one human after changing e.g. clothing.yaml (same manifest, same identity)
-.venv/bin/python scripts/run_pipeline.py --only H0042 --run-dir output/run-20261018-153012
+.venv/bin/python scripts/run_pipeline.py --only H0042 --run-dir output/humans/run-20261018-153012
 ```
 
 `--resume` and `--only` reuse the run's `manifest.json`, so identities do not change. They do use
@@ -116,9 +116,9 @@ Turning off the preview (`preview.engines: [BLENDER_WORKBENCH]`, lower `resoluti
 ## 4.6 Other tools
 
 ```bash
-.venv/bin/python scripts/validate_usd.py output/run-…          # re-validate all USDs of a run
-.venv/bin/python scripts/validate_usd.py output/run-…/humans/H0001/H0001.usd
-.venv/bin/python scripts/contact_sheet.py output/run-… --columns 10
+.venv/bin/python scripts/validate_usd.py output/humans/run-…          # re-validate all USDs of a run
+.venv/bin/python scripts/validate_usd.py output/humans/run-…/humans/H0001/H0001.usd
+.venv/bin/python scripts/contact_sheet.py output/humans/run-… --columns 10
 .venv/bin/python scripts/make_gown.py [--variant gown_short]
 .venv/bin/python scripts/calibrate_anchors.py --auto [--overwrite] [--dry-run]
 .venv/bin/python scripts/sample_population.py [--dry-run] [--out manifest.json]

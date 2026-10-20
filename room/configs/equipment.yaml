@@ -1,0 +1,61 @@
+# -----------------------------------------------------------------------------
+# X-ray equipment: wall stand with flat-panel detector (wall bucky), patient grips,
+# floor-mounted tube stand on a rail, and the patient floor marker.
+# Dimensions are typical radiography values, NOT GE specifications: replace them with the
+# values from the product spec sheet when available.
+# Any part can be replaced by a real asset: set `asset: /path/to/part.usd` (meters, Z-up, origin
+# as described per part); the builder then references that file instead of drawing primitives.
+# -----------------------------------------------------------------------------
+wall_stand:
+  asset: null                   # origin: centre of the wall-stand base at the wall, +Y into the room
+  column_size_m: [0.18, 0.12]   # [width, depth]
+  column_height_m: [2.05, 2.25]
+  base_size_m: [0.55, 0.38, 0.02]
+  wall_gap_m: 0.02              # column distance from the wall
+  carriage_travel_m: [0.45, 1.80]   # detector centre height limits (adjustable height)
+  detector_center_height_m: [1.20, 1.60]   # sampled height for this room (standing chest)
+  x_margin_m: 0.45              # min distance of the stand centre from an end wall / the changing room
+
+detector:
+  housing_size_m: [0.52, 0.56, 0.09]   # [width, height, depth]
+  active_area_m: [0.43, 0.43]          # 17 x 17 in, drawn as a marking on the front face
+  aec_chambers: 3
+
+handles:                        # patient grips on the detector housing
+  side: true                    # vertical bars left and right of the housing
+  side_length_m: 0.32
+  bar_radius_m: 0.016
+  standoff_m: 0.05              # bar distance from the housing side
+  p_top_bar: 0.5                # horizontal bar above the housing
+
+tube_stand:
+  asset: null                   # origin: centre of the rail at the wall, +Y towards the detector
+  rail_length_m: [2.0, 3.0]
+  rail_size_m: [0.16, 0.03]     # [width, height]
+  rail_offset_m: 0.18           # rail centre line distance from the wall
+  column_size_m: [0.16, 0.16]
+  column_height_m: [1.95, 2.20] # floor column (floor_ceiling columns reach the ceiling)
+  carriage_size_m: [0.36, 0.30, 0.12]
+  arm_size_m: [0.10, 0.10]      # cross-section of the horizontal arm
+  arm_min_length_m: 0.15
+  housing_radius_m: 0.10        # tube housing (cylinder, axis along the rail)
+  housing_length_m: 0.42
+  collimator_size_m: [0.22, 0.16, 0.22]   # [width, depth towards detector, height]
+  sid_m: [1.50, 1.80]           # source-to-image distance; clipped to what fits in the room width
+
+beam_corridor_half_width_m: 0.40   # keep-out band between tube and detector (no props)
+
+floor_marker:
+  stand_gap_m: [0.15, 0.30]     # gap between detector face and the front of the patient's feet zone
+  outline_size_m: [0.60, 0.45]  # tape rectangle [along wall, depth]
+  tape_width_m: 0.05
+  tape_colors: ["#c99700", "#3c3c3c", "#1f5fae"]   # dark amber, charcoal, dark blue (stand out on light floors)
+  min_floor_delta_e: 30.0       # tape is darkened until its CIELAB Delta E to the floor colour is at least this
+  footprint_spacing_m: 0.24     # distance between foot centres
+  center_line_length_m: 0.60
+
+# Entrance marker: where the patient first stands still just inside the entrance door, facing into the room.
+# Same tape colour, outline and footprints as the floor marker; it lies inside the door clearance zone (no props).
+entrance_marker:
+  enabled: true
+  distance_from_door_m: 0.55    # door plane -> marker centre (along the inward door normal)

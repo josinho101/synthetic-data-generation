@@ -1,0 +1,62 @@
+# -----------------------------------------------------------------------------
+# Surface finishes. Colours are '#rrggbb'; *_jitter adds a random HSV offset per room.
+# Textures are generated procedurally (numpy + Pillow) into <room>/textures/.
+# -----------------------------------------------------------------------------
+texture_resolution: 1024
+
+walls:
+  white: {colors: ["#f2f1ec", "#f5f5f2", "#ecebe5"], roughness: [0.75, 0.9]}
+  beige: {colors: ["#e6dcc8", "#ddd0b6", "#e9e0cf"], roughness: [0.75, 0.9]}
+  gray: {colors: ["#c9ccd0", "#bfc3c7", "#d4d6d8"], roughness: [0.75, 0.9]}
+  tiled:
+    colors: ["#f4f4f2", "#e3e9ec", "#e9e4da"]
+    grout_colors: ["#c8c8c4", "#b8bcbe"]
+    tile_size_m: [0.20, 0.30]
+    roughness: [0.2, 0.35]
+color_jitter: {hue: 0.01, sat: 0.03, val: 0.03}
+
+# Floor and walls always differ a little: when the sampled floor colour is closer to the wall colour than
+# this CIELAB colour difference (Delta E 1976; ~2 = just noticeable, ~10 = clearly different), the floor
+# is darkened (or lightened if it cannot get darker) until the difference is reached.
+min_floor_wall_delta_e: 10.0
+
+floors:
+  vinyl:
+    colors: ["#c9c2b5", "#a9b4b8", "#d3d0c6", "#9fa8a3", "#b9b0a2"]
+    speckle: [0.03, 0.10]        # strength of the speckle pattern
+    tex_size_m: 1.0
+    roughness: [0.35, 0.55]
+  tile:
+    colors: ["#d9d6cf", "#bfc2c0", "#e4e0d6", "#a7a39b"]
+    grout_colors: ["#8e8a84", "#b0aca4"]
+    tile_size_m: [0.30, 0.60]
+    roughness: [0.25, 0.45]
+  concrete:
+    colors: ["#a3a19c", "#8f8f8c", "#b2aea6"]
+    tex_size_m: 2.0
+    roughness: [0.45, 0.7]
+
+ceiling:
+  color: "#f0f0ec"
+  grid_m: 0.6096                # 2 ft acoustic tile grid
+  tbar_color: "#e6e6e2"
+  roughness: 0.9
+
+doors:
+  colors: ["#b48a5a", "#c9a574", "#d8d8d4", "#7f99a8"]
+  frame_color: "#b5b8bb"
+  roughness: 0.45
+
+# Equipment finishes. The glare level scales roughness/clearcoat: none -> matte, mild -> semi-gloss,
+# strong -> glossy (mild glare off the equipment surfaces is the default).
+glare: mild
+glare_levels:
+  none: {roughness: [0.55, 0.7], clearcoat: [0.0, 0.0]}
+  mild: {roughness: [0.22, 0.40], clearcoat: [0.3, 0.6]}
+  strong: {roughness: [0.08, 0.18], clearcoat: [0.8, 1.0]}
+equipment:
+  body_colors: ["#eceeef", "#f4f4f2", "#e2e5e8"]     # painted plastic housings
+  accent_colors: ["#5b6670", "#2f3a45", "#6c7d8c"]   # column trims, collimator
+  metal_roughness: [0.15, 0.30]                     # chrome handles / rail
+  metal_color: "#c4c8cc"
+  detector_front_color: "#f7f7f5"

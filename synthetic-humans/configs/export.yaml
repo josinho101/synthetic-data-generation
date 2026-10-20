@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # Runtime, environment and USD export settings.
 # -----------------------------------------------------------------------------
-output_root: /home/gehc-1/Joseph/SandBox/synthetic-data-generation/output   # each run -> <output_root>/run-<timestamp>/
+output_root: /home/gehc-1/Joseph/SandBox/synthetic-data-generation/output/humans   # each run -> <output_root>/run-<timestamp>/
 run_dir_format: "run-%Y%m%d-%H%M%S"
 
 # Environment requirements (checked by the preflight)

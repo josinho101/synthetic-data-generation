@@ -1,0 +1,32 @@
+# -----------------------------------------------------------------------------
+# Lighting: diffuse overhead ceiling panels (LED troffers) as UsdLux RectLights.
+# Illuminance target (lux, on the exam-room floor) -> panel luminance (nits) via sdg_room/photometry.py.
+# -----------------------------------------------------------------------------
+lux:
+  mean: 500
+  sd: 180
+  min: 100
+  max: 1000
+
+cct_k:                          # colour temperature per class (K drawn uniformly inside)
+  warm: [2700, 3500]
+  neutral: [3500, 4500]
+  cool: [4500, 6500]
+
+panels:
+  sizes_m: {"2x4": [1.2192, 0.6096], "2x2": [0.6096, 0.6096]}   # [along x, along y]
+  size_weights: {"2x4": 60, "2x2": 40}
+  count_exam: [2, 4]            # panels over the exam area (one row along the room)
+  count_changing: 1             # 2x2 panel in the changing room
+  changing_lux: [200, 500]
+  diffuser_emissive: 0.8        # emissive tint of the diffuser mesh (look only; the RectLight emits)
+
+# Direct illuminance is computed exactly (numerical integration). Light bounced off the walls is
+# approximated with indirect_gain. lux_calibration = (lux measured in Isaac Sim) / (lux predicted);
+# set it once after a calibration render (see README) and every new room is corrected.
+indirect_gain: 1.25
+lux_calibration: 1.0
+workplane_height_m: 0.0         # height of the illuminance grid (0 = floor)
+grid_m: 0.20
+
+ambient_dome: 0.0               # DomeLight intensity (0 = no dome; the room is closed)

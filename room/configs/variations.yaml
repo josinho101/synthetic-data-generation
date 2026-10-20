@@ -1,0 +1,36 @@
+# -----------------------------------------------------------------------------
+# WHAT gets generated: how many rooms, the seed and the weights of every categorical choice.
+# Weight blocks are relative weights (they do not need to sum to 100). Ranges are [min, max].
+# The exact values used for each room are written to manifest.json and <id>.json.
+# -----------------------------------------------------------------------------
+count: 1                        # number of rooms to generate
+seed: 20261020                  # global seed -> every room gets a derived, stable seed
+id_prefix: "R"                  # room ids: R0001, R0002, ...
+id_digits: 4
+max_layout_attempts: 50         # a room whose layout cannot be solved is resampled (new sub-seed) this many times
+
+# Detector (wall bucky) wall, seen from the entrance end of the room looking into the room (+X):
+#   left = north wall (y = width), right = south wall (y = 0). The tube rail goes on the other long wall.
+detector_side: {left: 50, right: 50}
+
+# Corner of the check-in / changing room at the entrance end (x = 0): north (y = width) or south (y = 0)
+changing_room_corner: {north: 50, south: 50}
+
+# Entrance door: on the short wall at the entrance end (x = 0), or on the long wall opposite the
+# changing room close to the entrance end. "west" falls back to "long_wall" when it does not fit.
+entrance_wall: {west: 60, long_wall: 40}
+
+# Door of the changing room: on its side facing into the room (east) or on its long side (inner)
+changing_door_wall: {east: 50, inner: 50}
+
+wall_finish: {white: 35, beige: 25, gray: 25, tiled: 15}
+floor_material: {vinyl: 45, tile: 35, concrete: 20}
+
+# Light colour temperature class -> K is drawn uniformly inside the class range (lighting.yaml)
+cct_class: {warm: 25, neutral: 45, cool: 30}
+
+# Table / stretcher in the exam area (at most one of them)
+patient_support: {none: 40, table: 30, stretcher: 30}
+
+# Tube column: floor-mounted only, or floor-to-ceiling column with a ceiling guide rail
+tube_column_type: {floor: 60, floor_ceiling: 40}

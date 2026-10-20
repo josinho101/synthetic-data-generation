@@ -41,7 +41,7 @@ dict_config:                 # standard logging.config.dictConfig
 ## 9.3 Console output
 
 ```
-[run]       run-20261018-211500 -> /…/output/run-20261018-211500
+[run]       run-20261018-211500 -> /…/output/humans/run-20261018-211500
 [preflight] OK   python            Python 3.12.3
 [preflight] OK   blender           Blender 5.2.2
 ...

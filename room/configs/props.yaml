@@ -1,0 +1,65 @@
+# -----------------------------------------------------------------------------
+# Clutter and optional elements in the exam area. Each item:
+#   p        probability that the item is present (or count: [min, max] for repeated items)
+#   size_m   floor footprint [x, y] (before rotation) and height
+#   wall     true = placed flush against a wall, false = free-standing
+# Items are placed by the layout solver: no overlaps, out of the beam corridor, door swings and
+# the patient walk path. An item that cannot be placed is dropped (logged as a warning).
+# -----------------------------------------------------------------------------
+clearance_m: 0.05               # gap between items
+
+items:
+  chair:
+    count: [0, 2]
+    size_m: [0.48, 0.50, 0.85]
+    wall: true
+    colors: ["#2f5d8a", "#4a4a4a", "#7a2e2e", "#3c6e57", "#8a8a8a"]
+  apron_rack:                   # wall-mounted hanger with lead aprons
+    p: 0.8
+    size_m: [0.80, 0.14, 1.65]
+    wall: true
+    aprons: [2, 4]
+    colors: ["#1f3b73", "#2c2c54", "#5a5f66", "#5b2a6e", "#1e6f73", "#7a1f2b"]
+  lead_screen:                  # mobile lead shield with lead glass window
+    p: 0.6
+    size_m: [0.80, 0.50, 1.90]
+    wall: false
+    colors: ["#e8e8e4", "#c9d3da"]
+  generator_cabinet:
+    p: 0.5
+    size_m: [0.60, 0.60, 1.60]
+    wall: true
+    colors: ["#e4e6e8", "#d3d7da"]
+  waste_bin:
+    p: 0.6
+    size_m: [0.32, 0.32, 0.45]
+    wall: true
+    colors: ["#e0e0e0", "#3a6ea5", "#c9c9c9"]
+  step_stool:
+    p: 0.4
+    size_m: [0.45, 0.38, 0.23]
+    wall: false
+    colors: ["#9a9ea3", "#d0d4d8"]
+  cable_runs:                   # floor cable cover from the tube carriage + wall conduit; floor-level, walkable
+    count: [1, 2]
+    cover_width_m: 0.10
+    cover_height_m: 0.012
+    colors: ["#3a3a3a", "#5a5a5a", "#a8a8a8"]
+
+patient_support:                # chosen by variations.patient_support (none / table / stretcher)
+  table:
+    size_m: [2.00, 0.66, 0.74]
+    alternatives: [[1.90, 0.62, 0.74]]   # tried when the default does not fit
+    colors: ["#e8eaec", "#d9dde0"]
+    pad_colors: ["#2b3a4a", "#3d4f5c", "#4a4a4a"]
+  stretcher:
+    size_m: [1.95, 0.70, 0.85]
+    alternatives: [[1.85, 0.66, 0.85]]
+    colors: ["#cfd3d6", "#b9bec2"]
+    pad_colors: ["#1f5f8b", "#2b3a4a", "#5c6e7a"]
+
+changing_room:                  # contents of the check-in / changing room
+  hook_count: [2, 4]
+  shelf_size_m: [0.60, 0.30]
+  gown_colors: ["#7fb3d5", "#a9cce3", "#d6eaf8", "#a3d9c9", "#ffffff"]
+  bench_colors: ["#b08a5a", "#8a8f94", "#d0c3a8"]

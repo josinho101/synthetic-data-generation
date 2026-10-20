@@ -213,7 +213,7 @@ Add a landmark, e.g. the 7th rib tip on the left: add `rib7_L: <vertex id>` unde
 
 | Key | Default | Meaning |
 |---|---|---|
-| `output_root` | `…/synthetic-data-generation/output` | each run → `<output_root>/run-<timestamp>/` |
+| `output_root` | `…/synthetic-data-generation/output/humans` | each run → `<output_root>/run-<timestamp>/` |
 | `run_dir_format` | `run-%Y%m%d-%H%M%S` | strftime format of the run folder |
 | `blender_bin` | `/snap/bin/blender` | Blender executable |
 | `min_python`, `min_blender`, `tested_blender`, `min_mpfb` | 3.10 / 4.2.0 / 5.2 / 2.0.18 | preflight version rules |
