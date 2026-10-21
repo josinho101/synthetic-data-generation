@@ -1,0 +1,81 @@
+# -----------------------------------------------------------------------------
+# MPFB default rig -> Isaac behavior "Human" rig retarget tags (omni.anim.retarget).
+# Every synthetic human has the same MPFB skeleton, so this one map serves all of them.
+# Joint names are the leaf names in the human's UsdSkel skeleton.
+# Before retargeting, run_exam.py inserts an identity joint above MPFB's "root" (which sits at the pelvis): the
+# retargeter needs "Hips" below a root joint, and the behavior system needs the skeleton root at the origin.
+# Its name must not equal "root" ignoring case ("Root" makes the retargeter reject the skeleton).
+# -----------------------------------------------------------------------------
+root_joint_name: SkelOrigin
+
+# Skeleton facing (MPFB humans: Z up, facing -Y). Set explicitly; auto-detection picks +Y forward for MPFB,
+# which turns the character upside down for the behavior system (negative height).
+up_axis: Z
+forward_axis: MINUS Y
+
+tags:
+  Hips: root
+  Spine1: spine04
+  Spine2: spine03
+  Chest: spine01
+  Neck1: neck01
+  Neck2: neck02
+  Head: head
+  LeftEye: eye_L
+  RightEye: eye_R
+
+  LeftShoulder: clavicle_L
+  LeftArm: upperarm01_L
+  LeftForeArm: lowerarm01_L
+  LeftHand: wrist_L
+  LeftLeg: upperleg01_L
+  LeftShin: lowerleg01_L
+  LeftFoot: foot_L
+  LeftToeBase: toe3_1_L
+  LeftHandThumb1: finger1_1_L
+  LeftHandThumb2: finger1_2_L
+  LeftHandThumb3: finger1_3_L
+  LeftHandIndex1: metacarpal1_L
+  LeftHandIndex2: finger2_1_L
+  LeftHandIndex3: finger2_2_L
+  LeftHandIndex4: finger2_3_L
+  LeftHandMiddle1: metacarpal2_L
+  LeftHandMiddle2: finger3_1_L
+  LeftHandMiddle3: finger3_2_L
+  LeftHandMiddle4: finger3_3_L
+  LeftHandRing1: metacarpal3_L
+  LeftHandRing2: finger4_1_L
+  LeftHandRing3: finger4_2_L
+  LeftHandRing4: finger4_3_L
+  LeftHandPinky1: metacarpal4_L
+  LeftHandPinky2: finger5_1_L
+  LeftHandPinky3: finger5_2_L
+  LeftHandPinky4: finger5_3_L
+
+  RightShoulder: clavicle_R
+  RightArm: upperarm01_R
+  RightForeArm: lowerarm01_R
+  RightHand: wrist_R
+  RightLeg: upperleg01_R
+  RightShin: lowerleg01_R
+  RightFoot: foot_R
+  RightToeBase: toe3_1_R
+  RightHandThumb1: finger1_1_R
+  RightHandThumb2: finger1_2_R
+  RightHandThumb3: finger1_3_R
+  RightHandIndex1: metacarpal1_R
+  RightHandIndex2: finger2_1_R
+  RightHandIndex3: finger2_2_R
+  RightHandIndex4: finger2_3_R
+  RightHandMiddle1: metacarpal2_R
+  RightHandMiddle2: finger3_1_R
+  RightHandMiddle3: finger3_2_R
+  RightHandMiddle4: finger3_3_R
+  RightHandRing1: metacarpal3_R
+  RightHandRing2: finger4_1_R
+  RightHandRing3: finger4_2_R
+  RightHandRing4: finger4_3_R
+  RightHandPinky1: metacarpal4_R
+  RightHandPinky2: finger5_1_R
+  RightHandPinky3: finger5_2_R
+  RightHandPinky4: finger5_3_R

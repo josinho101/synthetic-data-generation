@@ -39,3 +39,15 @@ walk:                           # patient walk paths must stay free: entrance ->
   agent_radius_m: 0.25          # half the shoulder width of a walking person
   grid_m: 0.05
   door_clearance_m: 0.80        # free zone in front of every door (inside the room)
+
+# Corridor outside the entrance (patient pipeline: the patient arrives and leaves here): walkable floor slab and a
+# ceiling-height panel light, in front of the entrance door.
+corridor:
+  enabled: true
+  depth_m: 3.0                  # out from the wall's outer face
+  width_m: 2.4                  # along the wall, centred on the door
+  light:
+    enabled: true
+    size_m: [1.2192, 0.6096]    # 2x4 ft panel
+    height_m: 2.6
+    relative_to_exam_panels: 1.0   # luminance relative to the X-ray room panels

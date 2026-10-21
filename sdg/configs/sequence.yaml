@@ -1,0 +1,30 @@
+# -----------------------------------------------------------------------------
+# The visit: route through the room and idle times. Positions come from the room metadata
+# (<room>.json -> anchors.stage.patient_route: entrance -> check_in -> connecting_door -> entrance_stand -> patient_stand).
+# -----------------------------------------------------------------------------
+start_outside_m: 1.5          # spawn point: this far outside the entrance door (along the door's outward normal)
+walk_speed_mps: null          # null -> behavior system default (natural gait); or e.g. 1.1
+
+idle_s:
+  outside: 2.0                # standing outside after being loaded
+  check_in: 0.0               # 0 = walk straight through the check-in room
+  entrance_marker: 2.0        # on the entrance marker just inside the X-ray room
+  detector_marker: 1.5        # on the detector marker, facing the detector, before the first projection
+  exit_marker: 1.0            # back on the entrance (door) marker before leaving
+  end: 1.5                    # outside after leaving
+
+task_timeout_s: 90            # a walk / turn / pose that takes longer is an error (patient stuck)
+arrive_tolerance_m: 0.25      # a walk ending further than this from its target is an error
+
+outside_light:                # the room lights only the suite: a ceiling panel copy above the arrival area outside
+  enabled: true
+  height_m: 2.6
+  towards_door_m: 0.6         # from the spawn point towards the entrance
+  intensity_scale: 1.0
+
+fov_light:                    # collimator field light; rooms carry it (Collimator/FOVLight), these values are only
+  enabled: true               # used for rooms built without it
+  field_cm: [35, 43]          # lit field at the SID (IES profile: a sharp rectangle like a real collimator light)
+  intensity: 150000           # DiskLight intensity (nits)
+  color: [1.0, 0.96, 0.82]
+  intensity_override: null    # set to change the brightness of the room's own FOV light for this run

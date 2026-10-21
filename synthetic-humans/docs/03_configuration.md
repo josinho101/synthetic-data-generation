@@ -232,6 +232,12 @@ Add a landmark, e.g. the 7th rib tip on the left: add `rib7_L: <vertex id>` unde
 | `usd.triangulate` | false | triangulate meshes before export |
 | `usd.max_bone_influences` | 4 | weights per vertex (limited + normalised) |
 | `usd.export_textures`, `usd.relative_paths` | true | textures referenced relatively from `textures/` |
+| `usd_post.enabled` | true | post-export fixes on the USD (`sdg_humans/usd_post.py`, see [07 §7.2a](07_usd_isaac_sim.md#72a-post-export-fixes-usd_post)) |
+| `usd_post.clothing_holes` | true | body faces fully covered by garments become `holeIndices` of the body mesh (not rendered), so skin cannot poke through the clothes when the human moves; points and topology stay complete |
+| `usd_post.clothing_min_covered_fraction` | 0.75 | a face is hidden when this share of its vertices **and** its centre are covered: faces under openings (collar placket, open-back gown) stay, faces at sleeve ends / armpits that push out of crumpled sleeves are hidden |
+| `usd_post.clothing_reach_cm` | 7 | skin counts as covered when cloth lies within this distance outside it (loose sleeves, gowns) |
+| `usd_post.anatomy_purpose` | guide | purpose of the `bone_*` anatomy meshes: `guide` = kept in the file, not rendered (rigidly skinned, they poke through the skin in strong poses); `default` = rendered |
+| `usd_post.root_joint` | SkelOrigin | identity root joint inserted above MPFB's `root` (pelvis) for retargeting (Isaac Sim behavior agents); `null` = MPFB skeleton unchanged. Must not be `root` in any case |
 | `preview.resolution` | [512, 768] | per view; front + left side side by side |
 | `preview.engines` | EEVEE, EEVEE_NEXT, WORKBENCH | first available engine is used |
 | `preview.background_rgb`, `preview.samples` | grey, 16 | render look / speed |

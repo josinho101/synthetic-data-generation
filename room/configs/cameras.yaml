@@ -166,6 +166,6 @@ exam_cameras:
       enabled: true
       mount: detector_top
       extension_m: 0.20            # arm reaches 0.2 m out from the detector face
-      rise_m: 0.10                 # post height above the detector housing top
+      rise_m: 0.80                 # post height above the detector housing top: lens above the head + D455 min range (0.10 put it beside the head, raised arms hit it)
       target: patient_top          # looks down at the floor of the movement zone
       stand_type: post_arm

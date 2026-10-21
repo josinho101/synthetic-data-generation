@@ -33,7 +33,8 @@ a referencing scene, use the `Viewer_Entrance` camera instead.
 │   │             Carriage/{Sleeve, Detector/{Housing, ActiveArea, Handles/{Handle_L, Handle_R, Handle_Top?, Standoff_*}}}}
 │   └── TubeStand/{Rail/{Track, EndStop*}, CeilingRail?,
 │                 Carriage/{Base, Column, TopGuide?, Arm/{Sleeve, Beam, TubeHead/{Housing, EndCap*,
-│                 Collimator/{Body, LightWindow, Knobs, Handle}, FocalSpot}}}}
+│                 Collimator/{Body, LightWindow, Knobs, Handle, FOVLight}, FocalSpot}}}}
+├── Corridor/{Floor/FloorSlab, Light/RectLight}                     outside the entrance (room.yaml corridor)
 ├── Markers/{Frame/{Outline*, CenterLine, Footprints}, PatientStand, EntranceFrame/{Outline*, Footprints}, EntranceStand}
 ├── Props/{Table|Stretcher, GeneratorCabinet01, LeadScreen01, ApronRack01/{Apron_*}, Chair01, WasteBin01, StepStool01, CableRun_*}
 ├── Lights/{Panel_01…, Panel_Changing}/{Frame, Diffuser, RectLight}

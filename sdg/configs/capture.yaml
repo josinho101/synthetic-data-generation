@@ -1,0 +1,45 @@
+# -----------------------------------------------------------------------------
+# Image capture during the visit (Replicator, inside Isaac Sim).
+#
+# Frames go to  <SD>/<EXAM>/<CAMERA>/RGB/<frame>.png  and  <SD>/<EXAM>/<CAMERA>/Depth/<frame>.png
+# (+ Depth_Preview/<frame>.png to look at), with <SD> = output/sdg/run-<timestamp>/SD.<n>
+# (with more than one room: <SD>/<EXAM>/<ROOM>/<CAMERA>/...), plus <SD>/<EXAM>/frames.csv
+# (frame, simulated time, step, projection, FOV light on/off) to line frames up with timeline.txt.
+# -----------------------------------------------------------------------------
+enabled: true
+fps: 2                          # images per second of simulated time, per camera. Must divide isaac.fps (30):
+                                #   30 = every simulated frame, 15, 10, 6, 5, 3, 2, 1
+start: spawn                    # spawn = from the moment the patient is loaded; detector_marker = only the exam part
+
+# Output folder name -> room camera. `camera`: a camera prim under /World/Room/Cameras (RGB and depth from the same
+# camera); `rig`: an RGB-D rig (Intel RealSense D455) -> RGB from <rig>_RGB, Depth from <rig>_Depth.
+# `group`: cameras of a group are not all recorded; each SD records one of them (see groups).
+# `enabled: false` turns a camera off (no folder, no images); remove it or set true to record it again.
+# A camera in a group cannot be disabled while its group share is > 0 (set its share to 0 as well).
+cameras:
+  FAR_LEFT:  {camera: CeilingCam_FarLeft, enabled: false}
+  FAR_RIGHT: {camera: CeilingCam_FarRight, enabled: false}
+  CHECK_IN:  {camera: CeilingCam_CheckIn, enabled: false}     # check-in room camera: off
+  FRONT:     {rig: RealSense_D455_Front, enabled: false}
+  TOP:       {rig: RealSense_D455_Top, enabled: false}
+  LEFT:      {rig: RealSense_D455_Left, group: side}
+  RIGHT:     {rig: RealSense_D455_Right, group: side}
+
+# Each SD records exactly one camera per group. The choice keeps the whole dataset (all SDs in every run-* of output_root, across
+# runs) closest to these shares, e.g. 2 patients -> one LEFT, one RIGHT. Recorded in sd_info.json -> capture.groups.
+groups:
+  side: {LEFT: 0.5, RIGHT: 0.5}
+
+streams:
+  rgb: true
+  depth: true
+rgb_format: png                 # png | jpg
+jpg_quality: 95
+depth_format: png16             # png16 (uint16, millimetres, lossless to 1 mm; ~6x smaller) | npy (float32, metres)
+                                # Both are metric data, not pictures: png16 looks black in image viewers
+                                # (2 m = 2000 of 65535). Use the preview below to look at depth.
+depth_preview: true             # also write <CAMERA>/Depth_Preview/<frame>.png: 8-bit greyscale, near = white,
+                                # far = dark, no hit = black (for viewing only; not for training)
+depth_preview_range_m: [0.3, 8.0]   # distances mapped to white .. darkest grey (fixed, so frames are comparable)
+resolution: native              # native = each camera's sdg:resolution; or [width, height] for all
+write_threads: 6                # parallel image writers (keeps the simulation from waiting on disk)

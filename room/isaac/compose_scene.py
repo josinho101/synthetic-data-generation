@@ -92,8 +92,17 @@ def _shift_attached(stage, room_prim, attached_to, dz):
 
 
 def compose(room_usd, out, human_usd=None, detector_height=None, room_prim="/World/Room"):
-    room_usd, out = Path(room_usd).resolve(), Path(out).resolve()
+    out = Path(out).resolve()
     stage = Usd.Stage.CreateNew(str(out))
+    info = compose_into(stage, room_usd, human_usd, detector_height, room_prim)
+    stage.GetRootLayer().customLayerData = {"sdg_scene": json.dumps(info)}
+    stage.GetRootLayer().Save()
+    return info
+
+
+def compose_into(stage, room_usd, human_usd=None, detector_height=None, room_prim="/World/Room"):
+    """Build the scene on an existing (e.g. in-memory Isaac) stage; nothing is saved. Returns the scene info."""
+    room_usd = Path(room_usd).resolve()
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     world = UsdGeom.Xform.Define(stage, "/World")
@@ -139,8 +148,6 @@ def compose(room_usd, out, human_usd=None, detector_height=None, room_prim="/Wor
             info["detector_height_m"] = round(h, 4)
             if moved:
                 info["cameras_moved_with_equipment"] = moved
-    stage.GetRootLayer().customLayerData = {"sdg_scene": json.dumps(info)}
-    stage.GetRootLayer().Save()
     return info
 
 

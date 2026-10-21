@@ -1,0 +1,22 @@
+# -----------------------------------------------------------------------------
+# What to run: which synthetic humans, which X-ray rooms, which exams, and where the SD data goes.
+# -----------------------------------------------------------------------------
+humans:
+  root: null            # a humans run dir (run-*) or a folder of runs; null -> latest run in <repo>/output/humans
+  count: 2              # first N humans of that run (ignored when ids are given)
+  ids: null             # e.g. [H0001, H0007]
+
+rooms:
+  root: null            # a rooms run dir (run-*) or a folder of runs; null -> latest run in <repo>/output/rooms
+  count: 1
+  ids: null             # e.g. [R0002]
+
+# Exams per human. One exam = one visit (walk in -> projections -> walk out) and one folder in the SD:
+# run-<timestamp>/SD.00001/CHEST/timeline.txt. Projections are played in this order and defined in poses.yaml.
+# Later: SPINE: [T_PA, T_LLAT, T_RLAT, L_PA, L_LLAT, L_RLAT]
+exams:
+  CHEST: [PA, LLAT, RLAT]
+
+output_root: null       # null -> <repo>/output/sdg ; each run -> <output_root>/run-<timestamp>/SD.00001, SD.00002, ...
+run_dir_format: "run-%Y%m%d-%H%M%S"   # run folder name (strftime); a -2, -3 suffix if it already exists
+sd_id_format: "SD.{:05d}"   # SD folder name; numbers start at 1 in every run (one SD per human)

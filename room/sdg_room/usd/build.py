@@ -10,6 +10,7 @@ from ..photometry import room_lighting
 from ..placement import Placement, entrance_outward
 from .cameras import build_cameras
 from .context import BuildContext
+from .corridor import build_corridor
 from .equipment import build_floor_marker, build_tube_stand, build_wall_stand
 from .lighting import build_lights
 from .props import build_props
@@ -51,6 +52,7 @@ def build_room_usd(cfg: dict, spec: dict, room_dir: Path, generator_version: str
     prims["props"] = build_props(ctx)
     photometry = room_lighting(spec, cfg)
     prims["lights"] = build_lights(ctx, photometry)
+    prims["corridor"] = build_corridor(ctx, materials, photometry)
     prims["cameras"] = build_cameras(ctx)
     _LOG.info(f"{spec['id']}: exam panels {photometry['exam']['luminance_nits']:.0f} nits -> estimated "
               f"{photometry['exam']['estimated_lux_mean']:.0f} lux (target {spec['lux_target']:.0f}), "

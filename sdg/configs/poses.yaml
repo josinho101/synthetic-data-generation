@@ -1,0 +1,42 @@
+# -----------------------------------------------------------------------------
+# X-ray projections and arm poses.
+#
+# facing: where the patient faces on the detector marker
+#   detector : faces the detector (PA, back to the tube)
+#   left     : turns 90 deg left from facing the detector  -> right side on the detector (RLAT)
+#   right    : turns 90 deg right from facing the detector -> left side on the detector (LLAT)
+#   tube     : back to the detector (AP)
+# arms: an entry of arm_poses below
+# -----------------------------------------------------------------------------
+projections:
+  PA:   {facing: detector, arms: hands_on_hip,  label: "Chest PA"}
+  LLAT: {facing: right,    arms: hands_on_head, label: "Chest left lateral"}
+  RLAT: {facing: left,     arms: hands_on_head, label: "Chest right lateral"}
+
+# Arm poses are played as behavior-system custom actions: a pose clip is built at run time on the motion library's
+# own skeleton (NVIDIA "Human" rig) from its standing Idle, then retargeted onto every patient like any other motion,
+# so the pose fits each body and the legs / torso keep a natural idle (sdg_xray/pose_clips.py).
+# Library frame, cm: +X = the patient's left, +Y = up, +Z = front. `anchor` = library joint (Head, Pelvis, Chest, ...).
+#   wrist_cm : wrist position relative to the anchor joint (left arm; the right arm mirrors X unless `right` is given)
+#   elbow    : direction the elbow points (two-bone IK bend direction)
+#   fingers  : wrist -> fingers direction;  palm: palm normal (the side the palm faces)
+#   via      : optional intermediate arm pose (same fields) passed halfway on the way in and out
+# The library rig is ~1.8 m tall; on a patient the pose scales with the body (rotations are retargeted).
+arm_poses:
+  hands_on_hip:                       # PA chest: back of the hands on the hips, palms facing out, elbows out and forward
+    anchor: Pelvis
+    left: {wrist_cm: [21, 10, -3], elbow: [1, 0, 0.4], fingers: [0.15, -1, -0.25], palm: [1, 0, -0.3]}
+  hands_on_head:                      # laterals: hands on the crown, fingers interlaced, elbows out to the sides
+    anchor: Head
+    left: {wrist_cm: [10, 12, -4], elbow: [1, 0.2, -0.2], fingers: [-1, 0.2, 0], palm: [0, -1, 0]}
+    via: {wrist_cm: [42, -8, 4], elbow: [0.6, -1, 0], fingers: [0, 1, 0], palm: [0, 0, 1]}   # "goal post": arms out, hands up
+
+timing:
+  turn_s: 1.6           # in-place turn to the projection's facing
+  after_turn_s: 0.4     # let the body settle after a turn before raising the arms
+  arms_up_s: 1.4        # blend from the idle into the pose (pose clip ActionStart)
+  settle_s: 0.8         # still in the pose before the FOV light
+  fov_on_s: 1.0         # FOV (collimator) light on
+  hold_after_s: 0.5     # still in the pose after the light
+  arms_down_s: 1.2      # blend back to the idle (pose clip ActionEnd)
+  between_s: 1.0        # idle between projections

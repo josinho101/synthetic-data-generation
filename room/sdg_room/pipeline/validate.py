@@ -140,7 +140,7 @@ def validate_usd(usd_path, footprint_m=None, ceiling_m=None, wall_t=0.12, expect
         L, W = footprint_m
         tol = wall_t + 0.02
         x0, y0, x1, y1 = -tol, -tol, L + tol, W + tol      # footprint + walls, check-in room, outward entrance swing
-        for rect in (_annex(root, "checkin_block"), _annex(root, "entrance_swing")):
+        for rect in (_annex(root, "checkin_block"), _annex(root, "entrance_swing"), _annex(root, "corridor_block")):
             if rect:
                 x0, y0, x1, y1 = min(x0, rect[0] - 0.05), min(y0, rect[1] - 0.05), max(x1, rect[2] + 0.05), \
                     max(y1, rect[3] + 0.05)

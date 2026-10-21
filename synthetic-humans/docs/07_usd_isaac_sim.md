@@ -46,10 +46,21 @@ Before export:
     └── H0001_sclera / _iris / _pupil
 ```
 
-Joint paths follow the bone hierarchy with `.` replaced by `_`, e.g.
-`root/spine05/spine04/spine03/spine02/spine01/neck01/neck02/neck03/LM_C7`. The exact path of each
+Joint paths follow the bone hierarchy with `.` replaced by `_`. With `usd_post.root_joint` (default) the skeleton
+starts with the identity joint `SkelOrigin`, e.g.
+`SkelOrigin/root/spine05/spine04/spine03/spine02/spine01/neck01/neck02/neck03/LM_C7` (248 joints). The exact path of each
 landmark is in `H0001.json → landmarks.<name>.usd_joint`, and the skeleton prim is in
 `skeleton.usd_skeleton_prim`.
+
+## 7.2a Post-export fixes (`usd_post`)
+
+Applied on the host after the Blender export, before validation, and recorded in `<id>.json → usd_post`:
+
+| Fix | What | Why |
+|---|---|---|
+| clothing holes | `holeIndices` on `H0001/base` = body faces whose vertices are all covered by one of the human's garments (a ray along the vertex normal hits the garment within `clothing_reach_cm`) | body and garments are skinned with different weights; in poses (arms up, hands on hips) the skin pushed through close-fitting cloth. Skin at hems, collars and sleeve openings stays |
+| anatomy purpose | `purpose = guide` on every `bone_*` prim | the rigid bone meshes poke through the skin in strong poses; they stay in the file for later use (switch on guides in the viewport, or set `anatomy_purpose: default`) |
+| root joint | `SkelOrigin` (identity) above `root`; joint paths, rest/bind transforms, per-joint primvars and the meshes' `skel:joints` updated; `landmarks.*.usd_joint` in the JSON too | retargeters need the hips below a root joint at the origin |
 
 ## 7.3 Validation (`scripts/validate_usd.py`, also run after every build)
 

@@ -1,0 +1,40 @@
+# -----------------------------------------------------------------------------
+# Isaac Sim runtime.
+# -----------------------------------------------------------------------------
+root: /home/gehc-1/Joseph/NVIDIA/isaac-sim     # Isaac Sim install (contains python.sh)
+python: python.sh                              # launcher inside root
+headless: false                                # true: no window (same animation, faster than real time)
+realtime: true                                 # GUI: play at wall-clock speed; false: as fast as possible
+viewport_camera: CeilingCam_FarLeft             # GUI: room camera the viewport looks through (null = Isaac's default view)
+keep_open: false                               # GUI: keep Isaac open after the last visit (close the window to end)
+fps: 30
+debug_hands: false                             # print each wrist's offset from the pose anchor vs the pose clip (tuning poses.yaml)
+debug_capture_dir: null                        # folder: PNG snapshots of the patient at each pose (debugging)
+debug_capture_every_step: false                # with debug_capture_dir: also capture after every step
+debug_capture_every_n_frames: 0                # with debug_capture_dir: > 0 saves every n-th frame of the whole visit (all cameras)
+hide_body_under_clothes: true                  # remove body faces fully covered by garments, so skin cannot poke through the clothes
+clothing_reach_m: 0.07                         # skin counts as covered when cloth lies within this distance outside it (loose sleeves ~5-6 cm)
+hide_anatomy: true                             # hide the bone_* anatomical skeleton meshes (rigidly skinned, they poke through the skin in arm poses)
+startup_timeout_s: 600                        # Isaac start-up + asset loading
+run_timeout_s: 3600                            # whole run
+
+# Behavior system (Isaac 6.x omni.anim.behavior): NVIDIA's human motion library, retargeted at runtime onto
+# the MPFB rig with the tag map in retarget_mpfb.yaml.
+motion_library: https://omniverse-content-staging.s3.us-west-2.amazonaws.com/Assets/Behavior/110.0/Samples/Assets/MotionLibrary/Human/HumanMotionLibrary.usd
+motion_library_rig: Human
+# Idle variations the agent may play while standing. Isaac's default set also has IdleTired (stooped), IdleGroove,
+# IdleTaunt, IdleTough, ... which look wrong for a patient and break the hand poses; keep a calm, upright idle.
+idle_animation_tags: [Idle]
+extensions: [omni.anim.navigation.core, omni.anim.retarget.core, omni.anim.behavior.core, omni.anim.graph.core]
+
+navmesh:
+  margin_m: 3.0                                # NavMesh volume = room + check-in room + this margin (covers outside)
+  height_m: 2.4
+  # Patient-sized agent and fine sampling: Isaac's defaults (radius 0.2-0.5 m, height 2.0 m, 20 cm voxels) close
+  # narrow doors and the ~0.65 m free strip of the small check-in room (bench on one side, gown shelf on the other).
+  agent_min_radius_m: 0.12
+  agent_max_radius_m: 0.3            # must be >= the agent radius (~0.24 m for the MPFB humans)
+  agent_min_height_m: 1.8
+  agent_max_step_height_m: 0.15
+  agent_min_island_radius_m: 0.2
+  sampling_distance_m: 0.05

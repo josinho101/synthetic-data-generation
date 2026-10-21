@@ -51,6 +51,13 @@ def _build_one(cfg: dict, ctx, spec: dict) -> dict:
     result["log"] = str(log)
     if result.get("status") in ("ok", "warn"):
         human_dir = ctx.human_dir(spec["id"])
+        post_cfg = export.get("usd_post") or {}
+        if post_cfg.get("enabled", True):
+            try:
+                result["usd_post"] = _postprocess(result["usd"], human_dir / f"{spec['id']}.json", post_cfg)
+            except Exception as exc:  # noqa: BLE001 - reported as a failed build
+                result["status"], result["error"] = "failed", f"USD post-processing: {exc}"
+                return result
         check = validate_usd(result["usd"], human_dir / f"{spec['id']}.json",
                              cfg["landmarks"].get("bone_prefix", "LM_"),
                              int(export["usd"].get("max_bone_influences", 4)))
@@ -67,6 +74,25 @@ def _build_one(cfg: dict, ctx, spec: dict) -> dict:
             except Exception as exc:  # noqa: BLE001 - animation is optional
                 _LOG.warning(f"{spec['id']}: animation not written: {exc}")
     return result
+
+
+def _postprocess(usd_path, meta_path: Path, post_cfg: dict) -> dict:
+    """export.yaml -> usd_post on the exported USD (clothing hole faces, anatomy purpose, root joint);
+    the outcome is recorded in <id>.json -> usd_post."""
+    import json
+    from ..usd_post import postprocess
+    meta = json.loads(meta_path.read_text())
+    garments = [i.get("asset") for i in (meta.get("clothing") or {}).get("items", []) if i.get("asset")]
+    info = postprocess(usd_path, garments, post_cfg)
+    root = info.get("root_joint") or {}
+    if root.get("added"):                       # landmark joint paths now start below the new root joint
+        for lm in (meta.get("landmarks") or {}).values():
+            if isinstance(lm, dict) and lm.get("usd_joint") and not lm["usd_joint"].startswith(root["name"] + "/"):
+                lm["usd_joint"] = f"{root['name']}/{lm['usd_joint']}"
+    meta["usd_post"] = info
+    meta_path.write_text(json.dumps(meta, indent=2))
+    _LOG.info(f"{meta.get('id')}: USD post-processing {info}")
+    return info
 
 
 def write_animation(usd_path: Path, anim_cfg: dict) -> Path:

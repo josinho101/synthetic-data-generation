@@ -10,6 +10,7 @@ Moving parts are separate Xforms so Isaac Sim scripts can drive them:
 """
 
 from ..layout.solver import collimator_front
+from .fov_light import build_fov_light
 from .stage import set_custom
 
 
@@ -134,9 +135,11 @@ def build_tube_stand(ctx):
     ctx.cyl(cpath, "Handle", 0.014, cw2 + 0.06, "x", (0, c_front - 0.03, -ch2 / 2 - 0.035), metal)
     for k, x in enumerate((-cw2 / 2 - 0.01, cw2 / 2 + 0.01)):
         ctx.cyl(cpath, f"HandlePost{k}", 0.008, 0.035, "z", (x, c_front - 0.03, -ch2 / 2 - 0.0175), metal, collide=False)
+    fov = build_fov_light(ctx, cpath, c_front, float(ctx.spec["layout"]["equipment"]["sid_m"]))
     focal = ctx.group(f"{h}/FocalSpot")
     set_custom(focal.GetPrim(), "sid_m", ctx.spec["layout"]["equipment"]["sid_m"])
     return {"path": p, "carriage": c, "arm": a, "tube_head": h, "collimator": cpath, "focal_spot": str(focal.GetPath()),
+            "fov_light": fov,
             "rail": rp}
 
 

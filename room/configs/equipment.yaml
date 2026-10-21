@@ -46,6 +46,14 @@ tube_stand:
   housing_length_m: 0.42
   collimator_size_m: [0.22, 0.16, 0.22]   # [width, depth towards detector, height]
   sid_m: [1.50, 1.80]           # source-to-image distance; clipped to what fits in the room width
+  fov_light:                    # collimator field light (Collimator/FOVLight, invisible until an exposure)
+    enabled: true
+    field_cm: [35, 43]          # lit field [width, height] at the SID (chest: 35 x 43 cm detector)
+    intensity: 150000           # DiskLight intensity (nits) with the field's IES profile; ~ a clearly visible field
+    radius_m: 0.01
+    color: [1.0, 0.96, 0.82]    # warm halogen / LED look
+    edge_deg: 0.4               # soft edge of the field
+    offset_m: 0.03              # in front of the collimator face
 
 beam_corridor_half_width_m: 0.40   # keep-out band between tube and detector (no props)
 

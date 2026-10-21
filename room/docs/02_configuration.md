@@ -175,3 +175,36 @@ Examples:
 | `physics.props_rigid_body` | props become dynamic rigid bodies |
 | `semantics` | write class labels |
 | `preview.plan_px_per_m`, `contact_sheet_columns` | floor plan PNG / contact sheet |
+
+
+## Corridor (`room.yaml → corridor`)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `enabled` | true | build the corridor outside the entrance |
+| `depth_m` / `width_m` | 3.0 / 2.4 | floor rectangle: out from the wall's outer face / along the wall, centred on the entrance door |
+| `light.enabled` | true | ceiling-height RectLight panel above the corridor (emits down, same colour temperature as the room) |
+| `light.size_m` / `height_m` | [1.2192, 0.6096] / 2.6 | panel size and height |
+| `light.relative_to_exam_panels` | 1.0 | luminance relative to the X-ray room's ceiling panels |
+
+The rectangle is stored on the root as `sdg:corridor_block` (room frame), and the validation allows geometry there.
+
+## FOV light (`equipment.yaml → tube_stand.fov_light`)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `enabled` | true | build `Collimator/FOVLight` |
+| `field_cm` | [35, 43] | lit field [width, height] at the room's SID; the IES half-angles are `atan(field / 2 / SID)` |
+| `intensity` | 150000 | DiskLight intensity (nits): a clearly visible field over the room light |
+| `radius_m`, `color`, `edge_deg`, `offset_m` | 0.01, warm white, 0.4°, 0.03 m | emitter size, colour, soft edge of the field, distance in front of the collimator |
+
+RTX's spotlight cone on area lights produces only a few-centimetre spot, so the field shape comes from the IES profile
+(LM-63, type C; intensity only inside the rectangle). The light is created invisible (`visibility = invisible`,
+`sdg:role = fov_light`, `sdg:field_cm`, `sdg:sid_m`).
+
+## TOP exam camera height (`cameras.yaml → RealSense_D455_Top.rise_m`)
+
+The post on top of the detector is 0.80 m (it was 0.10 m). The camera moves with the detector, which is set to the
+patient's chest height, so a short post put the lens level with the patient's head: raised arms hit it and the view was
+blocked. With 0.80 m the lens is about 2.3–2.4 m high and at least 0.6 m (the D455 minimum depth) above the tallest
+patient's head; the arm still reaches 0.2 m out from the detector face.

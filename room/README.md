@@ -46,6 +46,12 @@ Every room has:
 
   Every value is configurable (fixed or `[min, max]`). Tripods are floor obstacles in the layout;
   a blocked side-on spot swings around the detector at the same radius;
+- a **collimator field (FOV) light** (`equipment.yaml → tube_stand.fov_light`): `Collimator/FOVLight`, a DiskLight
+  with a generated IES profile that projects a sharp 35 × 43 cm rectangle at the SID (like a real collimator light).
+  It is invisible until switched on (the patient pipeline turns it on for 1 s per exposure). The profile is
+  `textures/fov_field.ies`;
+- a **corridor** outside the entrance (`room.yaml → corridor`): a walkable floor slab (collider) and a 2×4 ft
+  ceiling-height panel light, in front of the entrance door, so a patient can arrive and leave in the patient pipeline;
 - **placement on import**: the room is centred on the stage origin and turned so the **entrance door
   faces the viewer** (−Y by default), and Isaac opens the file with the viewport in front of the door;
 - **fixed layout, varied appearance** (default, `variations.randomize_layout: false`): every room has the

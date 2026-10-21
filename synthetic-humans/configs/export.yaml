@@ -47,6 +47,17 @@ usd:
   export_textures: true
   relative_paths: true
 
+# Fixes applied to the exported USD (host side, sdg_humans/usd_post.py), so the human animates cleanly in
+# Isaac Sim / other retargeters. Recorded in <id>.json -> usd_post.
+usd_post:
+  enabled: true
+  clothing_holes: true          # body faces fully covered by garments -> holeIndices (not rendered; mesh kept complete),
+                                # so skin cannot poke through the clothes when the human moves
+  clothing_reach_cm: 7          # skin counts as covered when cloth lies within this distance outside it (loose sleeves)
+  clothing_min_covered_fraction: 0.75   # a face is hidden when this share of its vertices and its centre are covered
+  anatomy_purpose: guide        # bone_* anatomy meshes: guide = kept but not rendered (they poke through skin in poses); default = rendered
+  root_joint: SkelOrigin        # identity root joint above MPFB's pelvis "root" (retargeting needs it); null = MPFB skeleton as is
+
 preview:
   resolution: [512, 768]        # per view; front + left side are placed next to each other
   engines: [BLENDER_EEVEE, BLENDER_EEVEE_NEXT, BLENDER_WORKBENCH]   # first available wins
