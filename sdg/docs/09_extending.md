@@ -77,6 +77,7 @@ simulation times.
 | `test_plan_visit_order` | route order, return to the start point, FOV on exactly `fov_on_s`, arm pose order |
 | `test_room_without_route_rejected` | missing anchors give an input error |
 | `test_pose_clip_ik_and_annotations` | pose clip IK (wrists at the configured offset, right arm mirrored), frame ranges, ActionStart/Loop/End annotations, BehaviorActionAPI, starts at the idle |
+| `test_pose_clip_arms_twist_as_mirror_images` | one idle elbow almost straight: both posed upper arms still twist as mirror images (no wrung shoulder) |
 | `test_pose_config_rejected_when_malformed` | arm pose validation |
 | `test_sd_numbering_and_timeline` | SD numbering, timeline paths and line format |
 | `test_real_inputs_plan` | real latest runs: 2 humans, 1 room, plausible T7 heights |

@@ -118,6 +118,10 @@ The clips are generated at the start of each run by `sdg_xray/pose_clips.py`:
 2. Two-bone IK per arm on the library skeleton: the wrist goes to `anchor + wrist_cm`, the elbow bends towards
    `elbow`, and the hand turns to `fingers` / `palm` ([03 §3.3](03_configuration.md#arm-poses)). The right arm mirrors
    the left.
+   The upper arm's twist (roll about the bone) comes from the idle elbow's hinge axis. The library idle bends the left
+   elbow about 15° but leaves the right almost straight (4°), whose bend plane is noise: taken per arm, it gave the
+   right upper arm a ~90° wrong twist and a distorted right shoulder. Both arms therefore use the hinge of the
+   more-bent idle elbow (mirrored for the other arm), so the posed upper arms are mirror images (within ~4°).
    The palm's turn (pronation / supination) is shared between a forearm roll and the wrist like in a real arm: the
    roll that minimises the wrist's turn is searched (5° steps) and the forearm takes `forearm_roll_share` (0.6) of it.
    With the whole turn on the wrist, one wrist twisted up to 120° and the skin wrung ("candy wrapper").

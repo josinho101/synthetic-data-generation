@@ -170,6 +170,33 @@ def test_pose_clip_ik_and_annotations(cfg, tmp_path):
         assert list(hold) != list(first)                    # arms posed during the hold
 
 
+def test_pose_clip_arms_twist_as_mirror_images(cfg):
+    """Idle with one elbow bent sideways and the other almost straight (as in the motion library): both posed upper
+    arms must still be mirror images, i.e. no extra twist on the straight-elbow side (wrung shoulder skin)."""
+    pytest.importorskip("pxr")
+    from pxr import Gf, UsdSkel
+    from sdg_xray import pose_clips
+    joints, frames = _library_like_skeleton()
+    names = [j.split("/")[-1] for j in joints]
+    rot, tr = frames[0]
+    tr = list(tr)
+    tr[names.index("L_Wrist")] = Gf.Vec3f(6, -24, 0)        # left elbow bent ~14 deg, to the side
+    tr[names.index("R_Wrist")] = Gf.Vec3f(0, -24, 1.5)      # right elbow almost straight, bend plane forward
+    parents = list(UsdSkel.Topology(joints).GetParentIndices())
+    base = [pose_clips._local_matrix(r, t) for r, t in zip(rot, tr)]
+    mirror = Gf.Matrix3d(-1, 0, 0, 0, 1, 0, 0, 0, 1)
+    for name, pose in cfg["poses"]["arm_poses"].items():
+        local = list(base)
+        for i, m in pose_clips.posed_arm_locals(joints, parents, base, pose).items():
+            local[i] = m
+        world = pose_clips._fk(local, parents)
+        left = world[names.index("L_UpArm")].ExtractRotationMatrix()
+        right = world[names.index("R_UpArm")].ExtractRotationMatrix()
+        diff = (mirror * left * mirror).GetTranspose() * right            # identity when mirror images
+        angle = Gf.Rotation(Gf.Quatd(Gf.Matrix4d(1.0).SetRotate(diff).ExtractRotationQuat())).GetAngle()
+        assert min(angle, 360 - angle) < 10, (name, angle)
+
+
 def test_pose_config_rejected_when_malformed():
     with pytest.raises(ConfigError, match="wrist_cm"):
         load_config(CONFIG_DIR, {"poses.arm_poses.hands_on_head.left.wrist_cm": [1, 2]})
@@ -282,7 +309,9 @@ def test_side_camera_balance_across_runs(tmp_path, cfg):
     assert nxt == [{"side": "RIGHT"}]
     skew = choose_group_options(tmp_path / "empty", {"side": {"LEFT": 0.75, "RIGHT": 0.25}}, 8)
     assert [p["side"] for p in skew].count("LEFT") == 6
-    names = [c["name"] for c in cameras_for_sd(cfg["capture"], {"side": "RIGHT"})]
+    cams = {"cameras": {"FAR_LEFT": {"camera": "CeilingCam_FarLeft"}, "LEFT": {"rig": "L", "group": "side"},
+                        "RIGHT": {"rig": "R", "group": "side"}}}
+    names = [c["name"] for c in cameras_for_sd(cams, {"side": "RIGHT"})]
     assert "RIGHT" in names and "LEFT" not in names and "FAR_LEFT" in names
 
 
@@ -300,6 +329,9 @@ def test_capture_config_validation():
 def test_capture_fps_and_disabled_camera(cfg):
     from sdg_xray.capture import cameras_for_sd, every_n_frames
     assert cfg["capture"]["fps"] == 2 and every_n_frames(cfg) == 15        # 30 fps simulation -> every 15th frame
-    names = [c["name"] for c in cameras_for_sd(cfg["capture"], {"side": "LEFT"})]
-    assert "CHECK_IN" not in names and "FAR_LEFT" in names                  # CHECK_IN: enabled: false
-    assert all("enabled" not in c for c in cameras_for_sd(cfg["capture"], {"side": "LEFT"}))
+    cams = {"cameras": {"FAR_LEFT": {"camera": "CeilingCam_FarLeft"},
+                        "CHECK_IN": {"camera": "CeilingCam_CheckIn", "enabled": False},
+                        "FRONT": {"rig": "F", "enabled": True}, "LEFT": {"rig": "L", "group": "side"}}}
+    picked = cameras_for_sd(cams, {"side": "LEFT"})
+    assert [c["name"] for c in picked] == ["FAR_LEFT", "FRONT", "LEFT"]      # CHECK_IN: enabled: false
+    assert all("enabled" not in c for c in picked)

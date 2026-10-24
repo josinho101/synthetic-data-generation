@@ -38,7 +38,7 @@ jpg_quality: 95
 depth_format: png16             # png16 (uint16, millimetres, lossless to 1 mm; ~6x smaller) | npy (float32, metres)
                                 # Both are metric data, not pictures: png16 looks black in image viewers
                                 # (2 m = 2000 of 65535). Use the preview below to look at depth.
-depth_preview: true             # also write <CAMERA>/Depth_Preview/<frame>.png: 8-bit greyscale, near = white,
+depth_preview: false             # also write <CAMERA>/Depth_Preview/<frame>.png: 8-bit greyscale, near = white,
                                 # far = dark, no hit = black (for viewing only; not for training)
 depth_preview_range_m: [0.3, 8.0]   # distances mapped to white .. darkest grey (fixed, so frames are comparable)
 resolution: native              # native = each camera's sdg:resolution; or [width, height] for all

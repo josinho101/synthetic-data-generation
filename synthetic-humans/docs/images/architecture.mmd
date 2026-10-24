@@ -1,0 +1,123 @@
+---
+config:
+  flowchart:
+    curve: basis
+    nodeSpacing: 22
+    rankSpacing: 50
+    padding: 10
+  themeVariables:
+    fontFamily: "DejaVu Sans, Arial, sans-serif"
+    fontSize: 15px
+---
+flowchart TB
+  subgraph CFG["CONFIGURATION LAYER · the population is defined by parameters, not code"]
+    subgraph CFGr[" "]
+      C1["<b>population.yaml</b><br/>count · seed · sex · age bands<br/>ethnicity · somatotype · height"]
+      C2["<b>appearance.yaml</b><br/>race mix · Monk skin tone<br/>face ranges · eyes · hair"]
+      C3["<b>clothing.yaml · gown.yaml</b><br/>garment mix · colours · cut"]
+      C4["<b>landmarks.yaml · anatomy.yaml</b><br/>84 landmarks · bone meshes"]
+      C5["<b>export.yaml</b><br/>workers · USD · bake<br/>preview · animation"]
+    end
+  end
+
+  subgraph CP["CONTROL PLANE · host Python · numpy · usd-core · Pillow"]
+    subgraph CPr[" "]
+      P1["<b>CLI entry points</b><br/>run_pipeline · check_env<br/>sample_population"]
+      P2["<b>Config loader</b><br/>merge · schema check<br/>snapshot"]
+      P3["<b>Preflight</b><br/>Blender · MPFB · assets<br/>GPU · disk"]
+      P4["<b>Sampling engine</b><br/>exact quotas · samplers<br/>sha256 seed · uniqueness"]
+      P5["<b>Orchestrator</b><br/>thread pool · timeouts<br/>retries · resume"]
+      P6["<b>Post-processing</b><br/>USD validator · animation<br/>reports"]
+    end
+  end
+
+  subgraph DP["COMPUTE PLANE · stateless Blender workers · scale out by adding workers or machines"]
+    subgraph WP["Worker pool · one headless Blender process per human"]
+      W1["<b>Worker 1</b><br/>blender -b · H0001"]
+      W2["<b>Worker 2</b><br/>blender -b · H0002"]
+      W3["<b>Worker 3</b><br/>blender -b · H0003"]
+      WN["<b>Worker N</b><br/>blender -b · H00NN"]
+    end
+    subgraph BP["Build modules inside every worker · bpy + MPFB only"]
+      M1["<b>Body · face</b><br/>height fit · BMI"]
+      M2["<b>Skin · bake</b><br/>eyes · hair"]
+      M3["<b>Rig · clothing</b><br/>gown builder"]
+      M4["<b>Annotation</b><br/>84 landmark joints<br/>anatomical skeleton"]
+      M5["<b>Export</b><br/>previews · USD"]
+    end
+    WP -->|"each worker runs the full build"| BP
+  end
+
+  subgraph ENG["ENGINES AND ASSETS · third-party"]
+    subgraph ENGr[" "]
+      E1["<b>Blender 4.2+</b><br/>Cycles bake · EEVEE"]
+      E2["<b>MPFB 2</b><br/>human · targets<br/>rig · MHCLO"]
+      E3["<b>MakeHuman packs</b><br/>hair · clothes · shoes"]
+      E4["<b>Custom gown</b><br/>generated MHCLO"]
+      E5["<b>OpenUSD</b><br/>UsdSkel · usd-core"]
+    end
+  end
+
+  subgraph ST["RUN STORE · output/humans/run-timestamp"]
+    subgraph STr[" "]
+      S1[("<b>manifest.json</b><br/>resolved spec<br/>the contract")]
+      S2[("<b>humans/H0001 …</b><br/>USD · anim.usda<br/>JSON · previews")]
+      S3[("<b>reports · logs</b><br/>summary · CSV<br/>contact sheet")]
+    end
+  end
+
+  subgraph CON["CONSUMERS · Isaac Sim digital twin"]
+    subgraph CONr[" "]
+      K1["<b>room/</b><br/>X-ray room USD scene"]
+      K2["<b>sdg/ · Isaac Sim 6.2</b><br/>exam animation + capture"]
+    end
+  end
+
+  subgraph SC["SCALABILITY · applies across every layer"]
+    subgraph SCr[" "]
+      X1["<b>Size is one parameter</b><br/>count: 1 → 150 → N"]
+      X2["<b>Horizontal scale-out</b><br/>N workers<br/>~1.5 GB RAM each"]
+      X3["<b>Fault isolation</b><br/>one crash = one human<br/>retries · resume · rebuild"]
+      X4["<b>Deterministic</b><br/>same seed →<br/>same population"]
+      X5["<b>Cost per human</b><br/>~90 s per worker<br/>~60 MB on disk"]
+    end
+  end
+
+  CFG ==>|"YAML parameters"| CP
+  CP ==>|"manifest.json → one job per human"| DP
+  DP -->|"bpy · MPFB API · MHCLO"| ENG
+  DP ==>|"USD · metadata · previews"| ST
+  CP -.->|"validate · animate · report"| ST
+  ST ==>|"USD humans + landmark joints"| CON
+  ENG ~~~ SC
+  CON ~~~ SC
+
+  classDef cfg fill:#fdf1d8,stroke:#b7791f,color:#3d2a06
+  classDef ctl fill:#e3eefc,stroke:#2b6cb0,color:#0f2747
+  classDef cmp fill:#dcf3ef,stroke:#2c7a7b,color:#0b3433
+  classDef eng fill:#ece7fb,stroke:#6b46c1,color:#2a1a56
+  classDef sto fill:#eef1f4,stroke:#4a5568,color:#1a202c
+  classDef con fill:#e5f5e3,stroke:#2f855a,color:#11351f
+  classDef scl fill:#fff1e6,stroke:#c05621,color:#4a1d05
+  class C1,C2,C3,C4,C5 cfg
+  class P1,P2,P3,P4,P5,P6 ctl
+  class W1,W2,W3,WN,M1,M2,M3,M4,M5 cmp
+  class E1,E2,E3,E4,E5 eng
+  class S1,S2,S3 sto
+  class K1,K2 con
+  class X1,X2,X3,X4,X5 scl
+  style CFG fill:#fffaf0,stroke:#b7791f,stroke-width:2px
+  style CP fill:#f5f9ff,stroke:#2b6cb0,stroke-width:2px
+  style DP fill:#f2fbf9,stroke:#2c7a7b,stroke-width:2px
+  style WP fill:#ffffff,stroke:#2c7a7b,stroke-dasharray:4 3
+  style BP fill:#ffffff,stroke:#2c7a7b,stroke-dasharray:4 3
+  style ENG fill:#f8f6fe,stroke:#6b46c1,stroke-width:2px
+  style ST fill:#f7f8fa,stroke:#4a5568,stroke-width:2px
+  style CON fill:#f3fbf2,stroke:#2f855a,stroke-width:2px
+  style SC fill:#fffaf5,stroke:#c05621,stroke-width:2px
+  style CFGr fill:none,stroke:none
+  style CPr fill:none,stroke:none
+  style ENGr fill:none,stroke:none
+  style STr fill:none,stroke:none
+  style CONr fill:none,stroke:none
+  style SCr fill:none,stroke:none

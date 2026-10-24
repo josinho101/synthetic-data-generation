@@ -81,6 +81,27 @@ def _mirror(spec: dict) -> dict:
     return out
 
 
+def _idle_elbow_hinges(index, parents, local) -> dict:
+    """{side: elbow hinge (bend-plane normal, world)} of the idle arms, both taken from the arm with the larger bend.
+
+    The library's idle bends one elbow ~15 deg and leaves the other almost straight (~4 deg): the straight arm's
+    bend plane is noise (it pointed forward instead of sideways) and gave that upper arm a ~90 deg wrong twist,
+    which wrung the shoulder skin. The other arm uses the mirror image (X negated; the cross product of mirrored
+    vectors flips sign), so both arms get mirror-image twists."""
+    world = _fk(local, parents)
+    normals = {}
+    for side in ("left", "right"):
+        up, lo, wrist = (index[n] for n in ARM[side][1:4])
+        s, e, w = (world[i].ExtractTranslation() for i in (up, lo, wrist))
+        normals[side] = Gf.Cross(e - s, w - e)
+    ref = max(normals, key=lambda k: normals[k].GetLength())
+    if normals[ref].GetLength() < 1e-6:
+        raise ClipError("both idle elbows are straight: the elbow hinge axis is undefined")
+    n = normals[ref].GetNormalized()
+    other = "right" if ref == "left" else "left"
+    return {ref: n, other: Gf.Vec3d(n[0], -n[1], -n[2])}
+
+
 def posed_arm_locals(joints, parents, base_local, pose: dict) -> dict:
     """{joint index: local matrix} of the arm joints for one arm pose, solved on the base (idle frame) pose."""
     index = {j.split("/")[-1]: i for i, j in enumerate(joints)}
@@ -88,6 +109,7 @@ def posed_arm_locals(joints, parents, base_local, pose: dict) -> dict:
     if anchor not in index:
         raise ClipError(f"anchor joint {anchor!r} not in the motion library skeleton")
     local = [Gf.Matrix4d(m) for m in base_local]
+    hinges = _idle_elbow_hinges(index, parents, local)
     for side in ("left", "right"):
         spec = pose.get(side) or (_mirror(pose["left"]) if side == "right" and "left" in pose else None)
         if not spec:
@@ -109,10 +131,8 @@ def posed_arm_locals(joints, parents, base_local, pose: dict) -> dict:
         sin_a = math.sqrt(max(0.0, 1 - cos_a * cos_a))
         e_new = s + u * (a * cos_a) + n * (a * sin_a)
         w_new = s + u * d
-        # upper arm: bone direction + bend plane
-        cur_plane = Gf.Cross(e - s, w - e)
-        if cur_plane.GetLength() < 1e-6:
-            cur_plane = Gf.Cross(e - s, pole)
+        # upper arm: bone direction + bend plane (the idle elbow hinge, mirrored from the better-bent arm)
+        cur_plane = hinges[side]
         new_plane = Gf.Cross(e_new - s, w_new - e_new)
         rot = _align(e - s, cur_plane, e_new - s, new_plane)
         local[up] = _rotation_about(world[up], rot, s) * world[parents[up]].GetInverse()
