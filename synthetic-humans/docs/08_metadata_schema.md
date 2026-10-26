@@ -29,7 +29,7 @@
 | `measurements_cm.biacromial_width_cm` | float | acromion to acromion |
 | `appearance.skin` | {source, texture} | `layered` or `mhmat:<file>`, baked texture name |
 | `appearance.body_parts` | {eyes, eyebrows, eyelashes, hair} | asset used, `generated`, or null |
-| `clothing.variant`, `clothing.gown_color` | str | |
+| `clothing.variant`, `clothing.gown_color` | str | variant `none` when `clothing.enabled` is false |
 | `clothing.items` | [{slot, asset, object, variant}] | garments actually worn |
 | `skeleton.rig`, `bone_count`, `deform_bone_count`, `landmark_joint_count` | | `mpfb_default`, 247, 163, 84 |
 | `skeleton.usd_root_prim`, `skeleton.usd_skeleton_prim` | str | `/H0001`, `/H0001/H0001_rig/H0001_rig` |

@@ -57,7 +57,7 @@ build issues without resampling. To change the population itself, start a new ru
 | sample | system Python | exact quotas → per-human specs → uniqueness | `manifest.json` |
 | build | 1 Blender process / human | 13 build steps (05) | `humans/<id>/…` |
 | validate | system Python (usd-core) | Isaac-Sim compatibility checks (07) | `results.json` (`validation`) |
-| animate | system Python (usd-core) | procedural UsdSkelAnimation + root motion (`export.animation`) | `<id>_anim.usda` |
+| animate | system Python (usd-core) | procedural UsdSkelAnimation + root motion (`export.animation`, off by default) | `<id>_anim.usda` |
 | report | system Python | CSV, summary, contact sheet | `population.csv`, `summary.json`, `contact_sheet.png` |
 
 ## 4.3 Run directory
@@ -82,11 +82,11 @@ build issues without resampling. To change the population itself, start a new ru
 └── humans/
     └── H0001/
         ├── H0001.usd          the human (UsdSkel)
-        ├── H0001_anim.usda    animated Isaac Sim scene referencing H0001.usd (isaac/README.md)
+        ├── H0001_anim.usda    animated Isaac Sim scene referencing H0001.usd (only with export.animation.enabled)
         ├── H0001.json         metadata (08_metadata_schema.md)
         ├── H0001.png          preview: front + left side
-        ├── H0001_landmarks.png preview with landmark dots (QA)
-        ├── H0001_skeleton.png  anatomical skeleton only (front + side)
+        ├── H0001_landmarks.png preview with landmark dots (QA; only with preview.landmark_overlay)
+        ├── H0001_skeleton.png  anatomical skeleton only (front + side; only with anatomy.preview)
         └── textures/          H0001_skin.png, H0001_gown.png, …
 ```
 
@@ -109,7 +109,7 @@ build issues without resampling. To change the population itself, start a new ru
 | anatomical skeleton | < 1 s |
 | previews (EEVEE: body + skeleton, 2 views each) | 70–85 s |
 | USD export + validation | < 2 s |
-| **total per human** | **≈ 85–95 s** → 150 humans ≈ 3.5–4 h (set `anatomy.preview: false` and `preview.landmark_overlay: false` to save time) |
+| **total per human** | **≈ 85–95 s** → 150 humans ≈ 3.5–4 h (`anatomy.preview` and `preview.landmark_overlay` are off by default; turning them on adds render time) |
 
 Turning off the preview (`preview.engines: [BLENDER_WORKBENCH]`, lower `resolution`) saves the most time.
 

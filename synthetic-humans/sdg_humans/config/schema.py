@@ -93,6 +93,8 @@ def _validate_appearance(errors, app):
 
 
 def _validate_clothing(errors, clothing):
+    if not isinstance(clothing.get("enabled", True), bool):
+        errors.append("clothing.enabled: must be true | false")
     _pct_block(errors, "clothing.variants", clothing.get("variants"), "pct")
     for name, var in (clothing.get("variants") or {}).items():
         for slot, spec in ((var or {}).get("slots") or {}).items():

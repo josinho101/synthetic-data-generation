@@ -114,6 +114,7 @@ ethnicity_profiles:
 
 | Key | Meaning |
 |---|---|
+| `enabled` | `true` (default) dresses every human with its variant. `false` generates all humans **unclothed**: no garments and no shoes (barefoot on the floor, no `hide_body_under` cut), `variants` / `fallback_variant` are ignored, `clothing.variant` is `none` and the body mesh gets no clothing `holeIndices` |
 | `variants.<name>.pct` | share of the population (exact quota) |
 | `variants.<name>.slots.<slot>.asset` | fixed MHCLO file (relative to `assets/` or absolute) |
 | `variants.<name>.slots.<slot>.mpfb_slot` | keyword pick from installed MPFB clothes: `chance` (0–100), `include_any`, `include_male`, `include_female`, `exclude`, `pack` (comma-separated, case-insensitive substrings). Same semantics as MPFB's own randomizer slots. |
@@ -153,6 +154,16 @@ coloured from `garment_colors.skirt`. Within each group the model is picked at r
 anchors `_shirts`, `_tshirts`, `_jeans`, `_formal_shoes`, `_comfort_shoes`, which keep the asset
 lists in one place. The chosen garments and colours are recorded per human in
 `H0001.json → clothing.items` (`asset`, `color`).
+
+Generate unclothed humans (whole run; the `clothing` stratum becomes `none` 100 %):
+
+```yaml
+enabled: false
+```
+
+Hair, eyebrows, eyelashes and eyes are still added. Rebuilding humans of an existing manifest with the flag off
+also leaves them unclothed (`clothing.items` is empty), but their `clothing.variant` keeps the name sampled into
+that manifest; start a new run to get `none` in the manifest, metadata and report.
 
 Add a variant (requires installed MPFB clothes packs):
 
@@ -241,7 +252,8 @@ Add a landmark, e.g. the 7th rib tip on the left: add `rib7_L: <vertex id>` unde
 | `preview.resolution` | [512, 768] | per view; front + left side side by side |
 | `preview.engines` | EEVEE, EEVEE_NEXT, WORKBENCH | first available engine is used |
 | `preview.background_rgb`, `preview.samples` | grey, 16 | render look / speed |
-| `preview.landmark_overlay` | true | also write `<id>_landmarks.png` with landmark dots |
+| `preview.landmark_overlay` | false | also write `<id>_landmarks.png` with landmark dots (QA; off by default) |
+| `animation.enabled` | false | also write the animated Isaac Sim scene `<id>_anim.usda` next to `<id>.usd` ([isaac/README.md](../isaac/README.md)); `fps`, `walk_distance_m`, `walk_speed_mps`, `jump_height_m` shape it |
 | `bake.device` | auto | `auto` / `GPU` / `CPU` for the Cycles texture bake |
 | `bake.samples`, `bake.margin_px` | 4, 8 | bake quality / UV island padding |
 

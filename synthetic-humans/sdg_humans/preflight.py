@@ -112,6 +112,8 @@ def check_blender_probe(cfg) -> list:
 
 
 def check_gowns(cfg) -> CheckResult:
+    if not cfg["clothing"].get("enabled", True):
+        return CheckResult("clothing assets", "ok", "clothing disabled (clothing.enabled: false)")
     missing = []
     for name, variant in cfg["clothing"]["variants"].items():
         if variant["pct"] <= 0:

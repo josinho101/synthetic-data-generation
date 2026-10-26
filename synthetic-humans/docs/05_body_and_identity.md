@@ -182,6 +182,7 @@ while the Monk colour stays in the metadata as the reference.
 * **Clothing** (`assets.py`): every slot of the human's variant is resolved (fixed asset or
   `mpfb_slot` keyword pick, reproducible per human) and loaded with `add_mhclo_asset`, which fits
   it to the body and transfers rig weights. If nothing could be loaded, `fallback_variant` is used.
+  With `clothing.enabled: false` every human gets the variant `none` and this step adds nothing.
 * **Gown styling** (`gown_style.py`): patterned fabric texture (stripes / solid), Smooth modifier weighted to zero at
   the cut edges, Displace (inflate) and Solidify (thickness). These are applied in the rest pose
   before export.

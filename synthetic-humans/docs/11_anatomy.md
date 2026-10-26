@@ -70,7 +70,7 @@ Rules (sizes scale with stature / 170 cm):
 | `min_depth_below_skin_cm` | 0.4 | every bone vertex is pulled at least this far inside the skin (no bone shows through on unusual faces / bodies) |
 | `max_edge_cm` | 1.0 | bone meshes are subdivided until no edge is longer than this before the inside check; otherwise a large triangle can cut through a concave skin area (nostrils, eye-cheek crease) although all its corners are inside |
 | `head_depth_below_skin_cm` | 0.8 | skull and mandible are also clamped **radially** from the head centre: each vertex stays this far inside the first skin or eyeball surface. The skin mesh is open at the eyes, mouth and nostrils, where a nearest-surface test can point the wrong way |
-| `preview` | true | write `<id>_skeleton.png` (bones only, front + side) |
+| `preview` | false | write `<id>_skeleton.png` (bones only, front + side; off by default) |
 
 ## 11.4 In the USD and metadata
 

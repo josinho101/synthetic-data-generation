@@ -21,8 +21,8 @@ Every human:
   in random colours, with **footwear by sex**;
 - can be posed into the **X-ray exam poses** with coupled spine / scapula / rib motion and a range-of-motion
   check: `scripts/pose_exams.py` (see [docs/06_landmarks.md](docs/06_landmarks.md#68-derived-joints-spinal-shape-and-exam-posing-2026-10-26));
-- comes with an **animated Isaac Sim scene** `<id>_anim.usda` (idle → walk → idle → jump → walk
-  back → idle), see [isaac/README.md](isaac/README.md);
+- can come with an **animated Isaac Sim scene** `<id>_anim.usda` (idle → walk → idle → jump → walk
+  back → idle; `export.animation.enabled`, off by default), see [isaac/README.md](isaac/README.md);
 - is written to its own folder: `USD + metadata JSON + preview PNGs + textures`.
 
 ## Setup on a new machine (one time, ~15 min)
@@ -135,7 +135,7 @@ Each run creates `<output_root>/run-<timestamp>/`:
 
 ```
 run-20261018-153012/
-├── humans/H0001/{H0001.usd, H0001_anim.usda, H0001.json, H0001.png, H0001_landmarks.png, H0001_skeleton.png, textures/}
+├── humans/H0001/{H0001.usd, H0001.json, H0001.png, textures/}   (+ _anim.usda / _landmarks.png / _skeleton.png when enabled)
 ├── manifest.json  population.csv  summary.json  contact_sheet.png  results.json
 ├── config_snapshot/  resolved_config.json  preflight.json
 └── logs/{pipeline.log, errors.log, humans/H0001.log}

@@ -8,8 +8,8 @@ Three small scripts (only `pxr` needed: usd-core, or the Python that ships with 
 | `animate_human.py` | terminal / Isaac Python | writes `<id>_anim.usda`: the human referenced + `UsdSkelAnimation` + root motion |
 | `play_in_isaac.py` | Isaac Sim → Window → Script Editor | loads one or more `*_anim.usda`, plays the timeline, prints landmark positions |
 
-The pipeline writes `<id>_anim.usda` automatically next to every `<id>.usd`
-(`export.animation.enabled: true`), so usually you only need step 2 below.
+The pipeline writes `<id>_anim.usda` next to every `<id>.usd` only when `export.animation.enabled: true`
+(off by default); otherwise create it with step 1 below.
 
 ## 1. Create an animated scene (if not done by the pipeline)
 

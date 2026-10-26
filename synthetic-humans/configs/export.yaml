@@ -63,12 +63,12 @@ preview:
   engines: [BLENDER_EEVEE, BLENDER_EEVEE_NEXT, BLENDER_WORKBENCH]   # first available wins
   background_rgb: "#d9dde3"
   samples: 16                   # EEVEE render samples (speed vs. quality)
-  landmark_overlay: true        # also write <id>_landmarks.png (landmark dots on the preview, for QA)
+  landmark_overlay: false       # also write <id>_landmarks.png (landmark dots on the preview, for QA)
 
 # Animated Isaac Sim scene per human (<id>_anim.usda next to <id>.usd), see isaac/README.md:
 # idle -> walk -> idle -> jump -> turn + walk back -> turn -> idle
 animation:
-  enabled: true
+  enabled: false
   fps: 30
   walk_distance_m: 3.0
   walk_speed_mps: 1.15

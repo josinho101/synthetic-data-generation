@@ -32,6 +32,10 @@ _jeans: &jeans
   include_male: "punkduck_male_classic_jeans,elvs_jeans_straight_leg,elvs_jeans_bootcut"
   include_female: "punkduck_female_tight_jeans,elvs_jeans_straight_leg"
 
+# false = every human is generated unclothed (no garments, no shoes; barefoot on the floor). The variants
+# below are then ignored, the clothing variant is recorded as "none" and usd_post authors no clothing holes.
+enabled: false
+
 variants:
   gown:                                     # generated hospital gown (knee length, short sleeve)
     pct: 25

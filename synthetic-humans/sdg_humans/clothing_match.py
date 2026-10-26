@@ -44,6 +44,14 @@ def pick(candidates: list, slot: dict, sex: str, rng: random.Random, pack_names=
 
 
 SEXES = ("male", "female")
+NO_CLOTHING = "none"      # clothing variant of every human when clothing.enabled is false
+
+
+def variant_pcts(clothing: dict) -> dict:
+    """Clothing variant -> share in %; {NO_CLOTHING: 100} when clothing.enabled is false (unclothed humans)."""
+    if not clothing.get("enabled", True):
+        return {NO_CLOTHING: 100}
+    return {k: v["pct"] for k, v in clothing["variants"].items()}
 
 
 def resolve_slot(slot: dict, sex: str, rng: random.Random):

@@ -119,7 +119,7 @@ or walks. The bone meshes (vertebrae, ribs, sternum) use the same parents.
 
 ## 6.5 QA image
 
-With `preview.landmark_overlay: true`, each human gets `<id>_landmarks.png`: front and side views
+With `preview.landmark_overlay: true` (`export.yaml`, off by default), each human gets `<id>_landmarks.png`: front and side views
 with **red** = internal vertebrae, **yellow** = surface vertebrae, **cyan** = anchors. Check that:
 red lies inside the body in front of yellow, both run C1 → S5 top to bottom, and the cyan points sit
 on the ears, shoulders, pelvis and heels.

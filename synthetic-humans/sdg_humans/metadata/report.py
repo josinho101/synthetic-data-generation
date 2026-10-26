@@ -6,6 +6,8 @@ import logging
 from collections import Counter
 from pathlib import Path
 
+from ..clothing_match import variant_pcts
+
 _LOG = logging.getLogger("sdg_humans.report")
 
 CSV_COLUMNS = [
@@ -54,7 +56,7 @@ def distributions(cfg: dict, metadata: list) -> dict:
     configured = {
         "sex": pop["sex"], "ethnicity": pop["ethnicity"], "age_band": pop["age_bands"],
         "somatotype": {k: v["pct"] for k, v in pop["somatotype"].items()},
-        "clothing_variant": {k: v["pct"] for k, v in cfg["clothing"]["variants"].items()},
+        "clothing_variant": variant_pcts(cfg["clothing"]),
     }
     getters = {
         "sex": lambda m: m["identity"]["sex"], "ethnicity": lambda m: m["identity"]["ethnicity"],

@@ -13,6 +13,12 @@ def test_manifest_counts_and_quotas(cfg, catalogue):
     assert len({s["id"] for s in specs}) == 40
 
 
+def test_clothing_disabled_gives_unclothed_humans(cfg, catalogue):
+    cfg["population"]["count"] = 12
+    cfg["clothing"]["enabled"] = False
+    assert {s["clothing_variant"] for s in build_specs(cfg, catalogue)} == {"none"}
+
+
 def test_manifest_is_deterministic(cfg, catalogue):
     cfg["population"]["count"] = 10
     assert build_specs(cfg, catalogue) == build_specs(cfg, catalogue)

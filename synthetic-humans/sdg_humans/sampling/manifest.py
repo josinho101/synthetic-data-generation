@@ -7,6 +7,7 @@ import random
 from datetime import datetime
 from pathlib import Path
 
+from ..clothing_match import variant_pcts
 from . import anthropometrics, ethnicity, face, identity, looks, somatotype
 from .quotas import assign_strata
 
@@ -27,7 +28,7 @@ def _factors(cfg: dict) -> list:
         "ethnicity": pop["ethnicity"],
         "age_bands": pop["age_bands"],
         "somatotype": {k: v["pct"] for k, v in pop["somatotype"].items()},
-        "clothing": {k: v["pct"] for k, v in cfg["clothing"]["variants"].items()},
+        "clothing": variant_pcts(cfg["clothing"]),
     }
     order = list(pop.get("stratify_order") or sources)
     order += [k for k in sources if k not in order]

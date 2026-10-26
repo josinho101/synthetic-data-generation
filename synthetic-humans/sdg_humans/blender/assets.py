@@ -111,6 +111,9 @@ def add_clothing(ns, basemesh, spec: dict, clothing: dict, textures_dir: Path, r
                  variant_name: str = None) -> list:
     """Dress the human with its clothing variant; falls back to `fallback_variant` if nothing fits."""
     variant_name = variant_name or spec["clothing_variant"]
+    if variant_name == clothing_match.NO_CLOTHING or not clothing.get("enabled", True):   # unclothed humans
+        _LOG.info("clothing: none (clothing.enabled is false)")
+        return []
     variant = clothing["variants"][variant_name]
     rng = random.Random(spec["seed"] ^ 0xC10)
     taken, worn = set(), []

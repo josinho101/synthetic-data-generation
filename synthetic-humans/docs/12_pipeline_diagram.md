@@ -39,7 +39,7 @@ flowchart TB
     V2 --> V3["Population report<br/>configured vs achieved<br/>CSV · contact sheet"]
   end
 
-  O[("Per human<br/>H0001.usd · H0001_anim.usda<br/>H0001.json · previews · textures")]
+  O[("Per human<br/>H0001.usd · H0001.json<br/>H0001.png · textures")]
   D["Isaac Sim X-ray room<br/>exam poses · cameras · labelled frames"]
 
   subgraph SC["SCALABILITY"]
