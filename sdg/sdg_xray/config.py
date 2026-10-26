@@ -1,4 +1,4 @@
-"""Load all YAML config files into one dict and validate it (same --set pattern as room/ and synthetic-humans/)."""
+"""Load all YAML config files into one dict and validate it (same --set pattern as room/ and mpfb-humans/)."""
 
 import copy
 import os

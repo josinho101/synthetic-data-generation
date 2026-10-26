@@ -3,7 +3,7 @@
 Config-driven generator of **synthetic X-ray rooms** for the X-ray room digital twin. Every room is
 a self-contained, **Isaac-Sim-ready USD**: meters, Z-up, UsdPreviewSurface materials with
 procedural textures, UsdLux lights, physics colliders and semantic labels. The pipeline works like
-[synthetic-humans](../synthetic-humans/README.md): YAML configs + a seed → N distinct, reproducible
+[mpfb-humans](../mpfb-humans/README.md): YAML configs + a seed → N distinct, reproducible
 rooms, each in its own folder with metadata and a floor plan.
 
 Every room has:

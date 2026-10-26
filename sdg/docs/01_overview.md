@@ -4,7 +4,7 @@
 
 `sdg` is the third pipeline of the X-ray room digital twin. It takes:
 
-* synthetic patients from [synthetic-humans](../../synthetic-humans/README.md): rigged MPFB humans as UsdSkel USD, with
+* synthetic patients from [mpfb-humans](../../mpfb-humans/README.md): rigged MPFB humans as UsdSkel USD, with
   landmark metadata;
 * X-ray rooms from [room](../../room/README.md): room USD with markers, patient route, equipment and D455 cameras.
 

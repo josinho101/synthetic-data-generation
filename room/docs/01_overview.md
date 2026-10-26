@@ -154,7 +154,7 @@ reused, so each room costs one layout solve. A different `layout_seed` gives ano
 ## 1.5 Distributions
 
 Categorical choices are independent weighted draws. They are not exact quotas as in
-synthetic-humans, because layout rejections would break quotas. For small counts (e.g. 3 rooms) the
+mpfb-humans, because layout rejections would break quotas. For small counts (e.g. 3 rooms) the
 achieved shares therefore differ from the weights; `summary.json` shows configured vs achieved.
 Two rules shift the shares slightly: a room is resampled when its layout fails, and the entrance
 falls back to the check-in room's other wall when it does not fit. With the detector at the far end,

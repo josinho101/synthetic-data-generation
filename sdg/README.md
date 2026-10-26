@@ -1,7 +1,7 @@
 # sdg
 
 Third pipeline of the X-ray room digital twin. It takes the synthetic patients from
-[synthetic-humans](../synthetic-humans/README.md) and the X-ray rooms from [room](../room/README.md), and animates
+[mpfb-humans](../mpfb-humans/README.md) and the X-ray rooms from [room](../room/README.md), and animates
 **X-ray exams live in Isaac Sim**. One human visits one room at a time:
 
 1. The patient is loaded **outside the room**, in front of the entrance.
