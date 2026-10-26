@@ -10,7 +10,7 @@ flowchart TB
     P1["population.yaml<br/>count · seed · quotas for sex,<br/>age, ethnicity, somatotype<br/>height distributions"]
     P2["appearance.yaml<br/>race mix · Monk skin tone<br/>face detail ranges · eyes · hair"]
     P3["clothing.yaml + gown.yaml<br/>hospital gown · shirt + jeans · skirt<br/>colours · length · sleeves"]
-    P4["landmarks.yaml + anatomy.yaml<br/>84 landmark anchors<br/>~80 anatomical bone meshes"]
+    P4["landmarks.yaml + anatomy.yaml<br/>70 landmark anchors (128 LM_ + 5 AN_ joints)<br/>~80 anatomical bone meshes"]
     P5["export.yaml<br/>workers · USD · bake<br/>preview · animation"]
   end
 
@@ -29,7 +29,7 @@ flowchart TB
     direction LR
     B1["Body and identity<br/>MPFB macros · face targets<br/>height fit · BMI from volume"] --> B2["Skin and looks<br/>tone-matched skin<br/>Cycles texture bake · hair, eyes"]
     B2 --> B3["Rig and clothing<br/>163-bone rig<br/>gown or MakeHuman garments"]
-    B3 --> B4["Annotation<br/>84 landmark joints<br/>anatomical skeleton"]
+    B3 --> B4["Annotation<br/>128 landmark + 5 frame joints<br/>anatomical skeleton"]
     B4 --> B5["Export<br/>UsdSkel USD · previews<br/>metadata JSON"]
   end
 

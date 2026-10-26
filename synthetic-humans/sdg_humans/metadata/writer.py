@@ -46,6 +46,7 @@ def build_metadata(spec: dict, run_id: str, build: dict, versions: dict) -> dict
                      "items": build["clothing"]},
         "skeleton": build["skeleton"],
         "landmarks": build["landmarks"],
+        "spine_shape": build.get("spine_shape"),
         "anatomy": {"bone_meshes": build.get("anatomy", []), "count": len(build.get("anatomy", []))},
         "files": build["files"],
         "warnings": build["warnings"],

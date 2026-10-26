@@ -9,16 +9,18 @@ Every human:
 
 - differs in sex, age, ethnicity (MPFB race mix), skin tone (Monk scale), height, somatotype
   (→ weight / BMI), face shape (MPFB detail targets), eye colour and clothing;
-- carries **84 landmark joints** in its skeleton (C1–C7, T1–T12, L1–L5, S1–S5 as vertebral-body
-  *and* skin-surface points, plus ears, eyes, nasion, chin, jugular notch, xiphoid, navel,
-  acromia, ASIS, iliac crests, trochanters and heels). The landmarks follow any animation
-  applied in Isaac Sim;
+- carries **128 landmark joints + 5 anatomical frames** in its skeleton (C1–C7, T1–T12, L1–L5, S1–S5 as oriented vertebral-body
+  *and* skin-surface points; head, sternum, scapulae, pelvis, elbow, wrist, knee and ankle
+  landmarks; ISB-style skull, thorax, pelvis and scapula frames, see
+  [docs/06_landmarks.md](docs/06_landmarks.md)). The landmarks follow any animation applied in Isaac Sim;
 - has a **schematic anatomical skeleton** (~80 bone meshes: skull, vertebrae, ribs, sternum,
   shoulder girdle, pelvis, limbs, hands, feet) inside the body, skinned to the rig;
 - has **hair, eyebrows and eyelashes** (MakeHuman system assets, tinted per human);
 - wears a **hospital gown** (striped or solid, natural shoulders, short trimmed sleeves, knee length,
   open back with ties) or a **shirt / t-shirt with jeans** (women also a knee-length office skirt),
   in random colours, with **footwear by sex**;
+- can be posed into the **X-ray exam poses** with coupled spine / scapula / rib motion and a range-of-motion
+  check: `scripts/pose_exams.py` (see [docs/06_landmarks.md](docs/06_landmarks.md#68-derived-joints-spinal-shape-and-exam-posing-2026-10-26));
 - comes with an **animated Isaac Sim scene** `<id>_anim.usda` (idle → walk → idle → jump → walk
   back → idle), see [isaac/README.md](isaac/README.md);
 - is written to its own folder: `USD + metadata JSON + preview PNGs + textures`.
@@ -166,6 +168,7 @@ run-20261018-153012/
 10. [Troubleshooting](docs/10_troubleshooting.md)
 11. [Anatomical skeleton](docs/11_anatomy.md)
 12. [Animation in Isaac Sim](isaac/README.md)
+13. [MPFB vs MHR comparison (skeleton, landmarks, exam poses)](docs/13_mpfb_vs_mhr.md)
 
 ## Tests
 

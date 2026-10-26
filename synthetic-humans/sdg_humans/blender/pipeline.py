@@ -31,7 +31,9 @@ def step(name: str, timings: dict):
 def _skeleton_info(armature, human_id: str, lm_result: dict, skeleton_prim: str) -> dict:
     return {"rig": "mpfb_default", "bone_count": len(armature.data.bones),
             "deform_bone_count": sum(1 for b in armature.data.bones if b.use_deform),
-            "landmark_joint_count": len(lm_result), "usd_root_prim": f"/{human_id}",
+            "landmark_joint_count": sum(1 for v in lm_result.values() if v["kind"] != "frame"),
+            "frame_joint_count": sum(1 for v in lm_result.values() if v["kind"] == "frame"),
+            "usd_root_prim": f"/{human_id}",
             "usd_skeleton_prim": skeleton_prim}
 
 
@@ -70,7 +72,8 @@ def run(args: dict) -> dict:
         lift_m = rig.lift_to_floor(armature)
         fit_result["footwear_lift_cm"] = round(lift_m * 100.0, 2)
     with step("landmarks", timings):
-        points = landmarks.compute_landmarks(basemesh, cfg["landmarks"])
+        points, spine_shape = landmarks.compute_landmarks(basemesh, cfg["landmarks"],
+                                                          {"seed": spec["seed"], "age": spec["age_years"]})
         lm_result = landmarks.add_landmark_bones(armature, points, cfg["landmarks"])
     with step("measure", timings):
         measurements = measure.measure(basemesh, lm_result, cfg["landmarks"])
@@ -105,7 +108,7 @@ def run(args: dict) -> dict:
                  "textures": sorted(p.name for p in textures.glob("*.png"))}
         build = {"fit": fit_result, "measurements": measurements, "skin": skin_info, "body_parts": parts,
                  "clothing": clothing, "skeleton": _skeleton_info(armature, hid, lm_result, skeleton_prim),
-                 "landmarks": lm_result, "anatomy": bones, "files": files, "warnings": report["warnings"],
+                 "landmarks": lm_result, "spine_shape": spine_shape, "anatomy": bones, "files": files, "warnings": report["warnings"],
                  "notes": report["notes"]}
         versions = {"blender": bpy.app.version_string, "mpfb": bootstrap.mpfb_version(ns),
                     "generator": args.get("generator_version", "unknown")}
