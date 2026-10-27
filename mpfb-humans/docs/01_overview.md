@@ -78,14 +78,15 @@ mpfb-humans/
 │   ├── calibrate_anchors.py propose landmark anchor vertices
 │   ├── validate_usd.py      validate USD files of a run
 │   ├── contact_sheet.py     rebuild the preview grid
-│   └── blender_entry.py     the ONLY script Blender runs; dispatches build/gown/calibrate/probe
+│   ├── garment_catalog.py   render every catalogued garment on reference humans
+│   └── blender_entry.py     the ONLY script Blender runs; dispatches build/gown/calibrate/catalog/probe
 ├── sdg_humans/
 │   ├── config/              loader.py (YAML + overrides) · schema.py (validation rules)
 │   ├── sampling/            quotas · anthropometrics · somatotype · ethnicity · face · looks ·
 │   │                        identity · manifest           (pure Python, unit tested)
 │   ├── blender/             runs inside Blender: bootstrap · body · fit · geometry · skin · bake ·
 │   │                        rig · eyes · assets · gown_style · landmarks · measure · preview ·
-│   │                        usd_export · calibrate · probe · pipeline (build task)
+│   │                        usd_export · calibrate · catalog · probe · pipeline (build task)
 │   │   ├── gown/            regions · profile · body_parts · extras · builder · texture ·
 │   │   │                    mhclo_writer · run (gown task)
 │   │   └── anatomy/         prims · axial · appendicular · build (bone meshes)

@@ -2,7 +2,8 @@
 
     blender -b -P scripts/blender_entry.py -- <task> <args.json> <result.json> [<log_file>]
 
-Tasks: build (one human), gown (gown assets), calibrate (landmark anchors), probe (environment).
+Tasks: build (one human), gown (gown assets), calibrate (landmark anchors), catalog (garment renders),
+probe (environment).
 The result JSON always gets {"status": ...}; on errors also "error" and "traceback".
 """
 
@@ -24,6 +25,8 @@ def _task(name):
         from sdg_humans.blender.gown.run import run
     elif name == "calibrate":
         from sdg_humans.blender.calibrate import run
+    elif name == "catalog":
+        from sdg_humans.blender.catalog import run
     elif name == "probe":
         from sdg_humans.blender.probe import run
     else:

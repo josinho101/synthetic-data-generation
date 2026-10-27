@@ -108,7 +108,7 @@ def _layer(worn: list, offset_m: float) -> None:
 
 
 def add_clothing(ns, basemesh, spec: dict, clothing: dict, textures_dir: Path, report: dict,
-                 variant_name: str = None) -> list:
+                 variant_name: str = None, catalog: dict = None) -> list:
     """Dress the human with its clothing variant; falls back to `fallback_variant` if nothing fits."""
     variant_name = variant_name or spec["clothing_variant"]
     if variant_name == clothing_match.NO_CLOTHING or not clothing.get("enabled", True):   # unclothed humans
@@ -128,6 +128,11 @@ def add_clothing(ns, basemesh, spec: dict, clothing: dict, textures_dir: Path, r
             p = p if p.is_absolute() else ASSETS_DIR / p
             path = p if p.exists() else None
             missing = f"{slot_name}: asset {p} not found"
+        elif "garment" in slot:     # garment_catalog.yaml ID
+            name = clothing_match.catalog_asset(catalog, slot["garment"])
+            candidates = candidates if candidates is not None else _candidates(ns, "clothes")
+            path = next((Path(c["path"]) for c in candidates if c["name"] == name), None)
+            missing = f"{slot_name}: garment {slot['garment']} ({name}) is not installed"
         else:
             candidates = candidates if candidates is not None else _candidates(ns, "clothes")
             choice = clothing_match.pick(candidates, slot["mpfb_slot"], spec["sex"], rng,
@@ -135,9 +140,9 @@ def add_clothing(ns, basemesh, spec: dict, clothing: dict, textures_dir: Path, r
             path = Path(choice["path"]) if choice else None
             missing = f"{slot_name}: no installed MPFB clothes asset matches {slot['mpfb_slot']} (or chance roll)"
         if path is None:
-            if clothing.get("fallback_if_missing") == "error" and "asset" in slot:
+            if clothing.get("fallback_if_missing") == "error" and "mpfb_slot" not in slot:
                 raise FileNotFoundError(missing)
-            if "asset" in slot:
+            if "mpfb_slot" not in slot:
                 report["warnings"].append(missing)
             else:
                 report["notes"].append(missing)
@@ -171,5 +176,5 @@ def add_clothing(ns, basemesh, spec: dict, clothing: dict, textures_dir: Path, r
     fallback = clothing.get("fallback_variant")
     if not worn and fallback and fallback != variant_name:
         report["notes"].append(f"clothing variant '{variant_name}' produced no garments; using '{fallback}'")
-        return add_clothing(ns, basemesh, spec, clothing, textures_dir, report, fallback)
+        return add_clothing(ns, basemesh, spec, clothing, textures_dir, report, fallback, catalog)
     return worn

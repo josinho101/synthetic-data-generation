@@ -1,0 +1,22 @@
+# -----------------------------------------------------------------------------
+# Anny body model (NAVER LABS Europe, Apache-2.0): https://github.com/naver/anny
+# -----------------------------------------------------------------------------
+# Rig: "makehuman" = the MPFB/MakeHuman default rig (163 bones, Blender bone orientation). Same joint names as the
+# MPFB pipeline, so sdg/configs/retarget_mpfb.yaml, landmarks.yaml parent bones and poses.yaml work unchanged; keeps
+# jaw + eye bones (open-mouth C1/C2 view, retarget eye tags), scapula (shoulder01) and the split twist bones.
+# "anny" = Anny's own rig (body bones only, re-oriented); needs other parent bones / retarget tags.
+rig: makehuman
+# Topology: "makehuman" = the full hm08 base mesh (19158 vertices incl. helpers, quads). Vertex-identical to MPFB, so
+# the landmark anchor vertex IDs, every MHCLO garment / hair / eyebrow asset and MakeHuman skin UVs apply directly.
+# Helpers are used for fitting only; the exported body is the "body" vertex group (13380 vertices).
+topology: makehuman
+
+# Local changes = MakeHuman detail targets (face sections of appearance.yaml); "all" loads every target.
+local_changes: all
+
+# Height solve: bisection on the Anny "height" phenotype (population.yaml height_cm.tolerance_cm / max_iterations).
+# When the target is outside what the phenotype reaches, a uniform scale finishes the last part (recorded in the
+# metadata as height_scale) unless it would exceed max_uniform_scale.
+max_uniform_scale: 0.06         # at most +/- 6 %
+
+# Skinning: Anny's linear-blend weights (up to 12 per vertex) are reduced to export.usd.max_bone_influences.

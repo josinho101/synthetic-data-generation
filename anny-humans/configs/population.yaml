@@ -1,0 +1,75 @@
+# -----------------------------------------------------------------------------
+# Population definition: WHO gets generated.
+# All percentage blocks must sum to 100. Counts are allocated exactly with the
+# largest-remainder method (see docs/02_configuration.md).
+# -----------------------------------------------------------------------------
+count: 150                      # number of humans to generate
+seed: 20261018                  # global seed -> every human gets a derived, stable seed
+id_prefix: "A"                  # human ids: A0001, A0002, ... (A = Anny; MPFB uses H, MHR M)
+id_digits: 4
+
+sex: {male: 50, female: 50}     # percent
+
+# Anny "gender" phenotype range per sex (0 = fully female, 1 = fully male)
+gender_macro:
+  male: [0.90, 1.00]
+  female: [0.00, 0.10]
+
+# Female-only macros (male humans use 0.5)
+female_macros:
+  cupsize: [0.30, 0.80]
+  firmness: [0.30, 0.80]
+
+# Adult age range in years (whole years, inclusive). Allowed: 18 <= min < max <= 70.
+age_range: {min: 18, max: 70}
+
+age_bands:                      # percent; age drawn uniformly inside band AND age_range (bands are clipped to it;
+  "18-30": 30                   # a band entirely outside age_range is a config error)
+  "31-50": 40
+  "51-70": 30
+
+# Age (years) -> Anny "age" phenotype, piecewise linear [[years, value], ...]. These are Anny's own calibrated
+# anchors (anny/data/shape_calibration: MorphologicalAgeMapping, WHO-fitted); 18 y = 0.77, 64 y = 0.83.
+age_years_to_anny: [[0, 0.0], [1, 0.05], [4, 0.215], [11, 0.415], [16, 0.67], [18, 0.77], [64, 0.83], [110, 1.0]]
+
+ethnicity:                      # percent; profiles are defined in appearance.yaml
+  east_asian: 20
+  south_asian: 20
+  african: 20
+  caucasian: 25
+  hispanic_latino: 15
+
+# Somatotype (body build). Each entry: percent + Anny phenotype ranges [min, max] in 0..1 (same as MPFB macros).
+# Weight (kg) and BMI are NOT inputs - they are measured from the generated body.
+# Note: in Anny / MPFB, body fat comes from HIGH weight with LOW muscle (weight 1 / muscle 0 is
+# obese, weight 1 / muscle 0.5 is only ~BMI 22), hence the ranges below.
+somatotype:
+  endomorph:           {pct: 20, weight: [0.80, 1.00], muscle: [0.00, 0.25], proportions: [0.30, 0.50]}
+  endomorph_mesomorph: {pct: 20, weight: [0.75, 1.00], muscle: [0.55, 0.90], proportions: [0.40, 0.60]}
+  mesomorph:           {pct: 20, weight: [0.50, 0.75], muscle: [0.75, 1.00], proportions: [0.50, 0.70]}
+  mesomorph_ectomorph: {pct: 15, weight: [0.25, 0.50], muscle: [0.60, 0.85], proportions: [0.60, 0.80]}
+  ectomorph:           {pct: 15, weight: [0.00, 0.30], muscle: [0.30, 0.50], proportions: [0.70, 1.00]}
+  endomorph_ectomorph: {pct: 10, weight: [0.55, 0.75], muscle: [0.00, 0.25], proportions: [0.60, 0.85]}
+
+bmi_guard: [15.0, 45.0]         # achieved BMI outside this range -> warning + fit_ok=false
+body_density_kg_m3: 1010        # mass = measured body volume * density
+
+height_cm:                      # truncated normal per sex, shifted by ethnicity offset
+  male:   {mean: 175, sd: 7.5, min: 155, max: 200}
+  female: {mean: 162, sd: 7.0, min: 145, max: 185}
+  ethnicity_offset_cm:
+    east_asian: -3
+    south_asian: -4
+    african: 1
+    caucasian: 1
+    hispanic_latino: -3
+  tolerance_cm: 0.5             # height solver stops when |achieved - target| <= tolerance
+  max_iterations: 12
+
+# Order in which strata are interleaved so that the mix is also balanced *within*
+# earlier strata (e.g. ethnicity balanced within each sex). Every marginal is exact.
+stratify_order: [sex, ethnicity, age_bands, somatotype, clothing]
+
+uniqueness:
+  min_feature_distance: 0.08    # RMS distance in normalised feature space
+  max_resample: 50              # attempts before accepting with a warning

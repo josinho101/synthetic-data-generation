@@ -1,0 +1,263 @@
+# -----------------------------------------------------------------------------
+# Anatomical landmarks. Every landmark becomes a non-deforming skeleton joint
+# "<bone_prefix><name>" in the exported USD, so it follows any animation.
+#
+# anchors: basemesh vertex IDs. All MPFB humans share one topology, so a vertex
+#          ID marks the same anatomical point on every human. Fill them with
+#            scripts/calibrate_anchors.py --auto      (headless proposal)
+#          and refine in the Blender UI if needed (see docs/06_landmarks.md).
+#          null = not calibrated yet (the preflight check fails).
+# -----------------------------------------------------------------------------
+anchors:
+  # posterior midline (spinous processes)
+  inion: 941                   # external occipital protuberance (top boundary of C1)
+  c7_spinous: 1491              # vertebra prominens
+  t7_spinous: 1600              # level of the inferior scapular angles (chest PA centring)
+  t12_spinous: 4002
+  l4_spinous: 4195              # intercristal line
+  s1_spinous: 4205              # level of the PSIS dimples
+  coccyx: 4231                  # bottom boundary of S5
+  # head / face
+  vertex: 881                  # top of the skull
+  glabella: 227
+  nasion: 169
+  tragus_L: 12333
+  tragus_R: 5736
+  outer_canthus_L: 7882
+  outer_canthus_R: 1190
+  infraorbital_L: 11677          # orbitale (Frankfort plane, IOML)
+  infraorbital_R: 5060
+  mastoid_L: 12162
+  mastoid_R: 5565
+  gonion_L: 11851                # angle of the mandible
+  gonion_R: 5242
+  chin: 5162                    # menton
+  # trunk (anterior)
+  jugular_notch: 1526
+  sternal_angle: 1401           # angle of Louis (T4/T5)
+  xiphoid: 1893
+  costal_margin_L: 10737         # lowest costal margin at the midclavicular line
+  costal_margin_R: 4085
+  navel: 4116
+  pubic_symphysis: 4335
+  # shoulders / pelvis / legs
+  acromion_L: 8276
+  acromion_R: 1604
+  coracoid_L: 10422
+  coracoid_R: 3755
+  scapula_superior_angle_L: 8230
+  scapula_superior_angle_R: 1552
+  scapula_spine_root_L: 8255    # trigonum spinae
+  scapula_spine_root_R: 1577
+  scapula_inferior_angle_L: 10592
+  scapula_inferior_angle_R: 3927
+  asis_L: 10947                  # recalibrated 2026-10-26: inter-ASIS was 15 cm (adult ~24 cm)
+  asis_R: 4318
+  psis_L: 10839
+  psis_R: 4201
+  iliac_crest_L: 10806
+  iliac_crest_R: 4165
+  greater_trochanter_L: 10921
+  greater_trochanter_R: 4291
+  # upper limb
+  lateral_epicondyle_L: 10057
+  lateral_epicondyle_R: 3389
+  medial_epicondyle_L: 10069
+  medial_epicondyle_R: 3401
+  olecranon_L: 10025
+  olecranon_R: 3357
+  radial_styloid_L: 10436
+  radial_styloid_R: 3769
+  ulnar_styloid_L: 10194
+  ulnar_styloid_R: 3526
+  # lower limb
+  patella_L: 11223
+  patella_R: 4605
+  lateral_femoral_epicondyle_L: 11245
+  lateral_femoral_epicondyle_R: 4627
+  medial_femoral_epicondyle_L: 11217
+  medial_femoral_epicondyle_R: 4599
+  fibular_head_L: 11283
+  fibular_head_R: 4665
+  lateral_malleolus_L: 12986
+  lateral_malleolus_R: 6389
+  medial_malleolus_L: 12939
+  medial_malleolus_R: 6342
+  heel_L: 12453
+  heel_R: 5856
+  metatarsal_head_1_L: 13299
+  metatarsal_head_1_R: 6703
+  metatarsal_head_5_L: 13244
+  metatarsal_head_5_R: 6648
+
+# Vertebrae: levels in cranio-caudal order, with relative segment heights
+# (vertebral body + disc, normalised per region from adult reference data).
+# Pinned levels sit exactly on an anchor; the others are distributed between
+# pins by arc length along the posterior midline profile of each human.
+spine:
+  levels: [C1, C2, C3, C4, C5, C6, C7,
+           T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12,
+           L1, L2, L3, L4, L5,
+           S1, S2, S3, S4, S5]
+  segment_ratios:
+    C1: 0.9
+    C2: 1.6
+    C3: 1.0
+    C4: 1.0
+    C5: 1.0
+    C6: 1.0
+    C7: 1.1
+    T1: 1.3
+    T2: 1.35
+    T3: 1.4
+    T4: 1.45
+    T5: 1.5
+    T6: 1.55
+    T7: 1.6
+    T8: 1.65
+    T9: 1.7
+    T10: 1.75
+    T11: 1.85
+    T12: 1.95
+    L1: 2.1
+    L2: 2.2
+    L3: 2.25
+    L4: 2.25
+    L5: 2.2
+    S1: 1.6
+    S2: 1.3
+    S3: 1.1
+    S4: 0.9
+    S5: 0.8
+  pins: {C7: c7_spinous, T12: t12_spinous, L4: l4_spinous, S1: s1_spinous}
+  top_anchor: inion             # boundary above C1
+  top_offset_cm: 2.0            # C1 starts this far below the inion (opisthion / foramen magnum)
+  bottom_anchor: coccyx         # boundary below S5
+  # Internal point (vertebral body centre) = surface point moved anteriorly (-Y) by
+  #   fraction : this fraction of the local antero-posterior body depth (ray cast per human)
+  #   fixed_cm : a fixed distance, optionally scaled by stature / 170 cm
+  # The neck uses fixed_cm because a forward ray from the neck hits the jaw / mouth cavity.
+  internal_depth:
+    C: {fixed_cm: 4.5, scale_with_stature: true}
+    T: {fraction: 0.27}
+    L: {fraction: 0.30}
+    S: {fraction: 0.22}
+  emit: [internal, surface]     # LM_T7 (internal) and LM_T7_surf (surface)
+  max_forward_cm: 4.0           # profile points may lie at most this far in front of the anchor chain
+
+# Landmark -> parent bone of the MPFB default rig. "{side}" expands to L / R.
+# Spine ranges like "T1-T4" are expanded automatically.
+# "auto_axial" = the nearest bone segment of the axial chain root -> spine05 (lowest) ...
+# spine01 (upper chest) -> neck01..03 -> head, decided per human from the landmark position.
+parent_bones:
+  C1-S5: auto_axial
+  inion: head
+  c7_spinous: auto_axial
+  t7_spinous: auto_axial
+  t12_spinous: auto_axial
+  l4_spinous: auto_axial
+  s1_spinous: auto_axial
+  coccyx: root
+  vertex: head
+  glabella: head
+  nasion: head
+  chin: jaw
+  gonion_{side}: jaw
+  tragus_{side}: head
+  outer_canthus_{side}: head
+  infraorbital_{side}: head
+  mastoid_{side}: head
+  jugular_notch: auto_axial
+  sternal_angle: auto_axial
+  xiphoid: auto_axial
+  costal_margin_{side}: auto_axial
+  navel: auto_axial
+  pubic_symphysis: root
+  acromion_{side}: "shoulder01.{side}"
+  coracoid_{side}: "shoulder01.{side}"
+  scapula_superior_angle_{side}: "shoulder01.{side}"
+  scapula_spine_root_{side}: "shoulder01.{side}"
+  scapula_inferior_angle_{side}: "shoulder01.{side}"
+  asis_{side}: "pelvis.{side}"
+  psis_{side}: "pelvis.{side}"
+  iliac_crest_{side}: "pelvis.{side}"
+  greater_trochanter_{side}: "upperleg01.{side}"
+  lateral_epicondyle_{side}: "upperarm02.{side}"
+  medial_epicondyle_{side}: "upperarm02.{side}"
+  olecranon_{side}: "lowerarm01.{side}"
+  radial_styloid_{side}: "lowerarm02.{side}"
+  ulnar_styloid_{side}: "lowerarm02.{side}"
+  patella_{side}: "upperleg02.{side}"
+  lateral_femoral_epicondyle_{side}: "upperleg02.{side}"
+  medial_femoral_epicondyle_{side}: "upperleg02.{side}"
+  fibular_head_{side}: "lowerleg01.{side}"
+  lateral_malleolus_{side}: "lowerleg02.{side}"
+  medial_malleolus_{side}: "lowerleg02.{side}"
+  heel_{side}: "foot.{side}"
+  metatarsal_head_1_{side}: "foot.{side}"
+  metatarsal_head_5_{side}: "foot.{side}"
+  # derived joints (sdg_humans/anatomy_rules.py)
+  hip_centre_{side}: "pelvis.{side}"
+  shoulder_centre_{side}: "shoulder01.{side}"
+  elbow_centre_{side}: "upperarm02.{side}"
+  wrist_centre_{side}: "lowerarm02.{side}"
+  knee_centre_{side}: "upperleg02.{side}"
+  ankle_centre_{side}: "lowerleg02.{side}"
+  rib*_end_{side}: auto_axial
+  hyoid: auto_axial
+  carpus_{side}: "wrist.{side}"
+  calcaneus_{side}: "foot.{side}"
+  patella_internal_{side}: "upperleg02.{side}"
+
+bone_prefix: "LM_"
+bone_length_m: 0.02
+
+# Anatomical frames (oriented bones "<prefix><name>", non-deforming). Bone axes: Y superior,
+# Z subject right, X anterior (ISB-style; same on both sides). Vertebral body bones LM_C1..S5 use
+# the same axes with Y along the spine curve.
+#   skull   : origin mid-tragion, Frankfort plane (tragi + infraorbitals)
+#   thorax  : origin jugular notch (ISB: jugular notch, xiphoid, C7, T8)
+#   pelvis  : origin mid-ASIS (ISB: ASIS + PSIS)
+#   scapula : origin acromion (ISB: acromion, spine root, inferior angle)
+frames:
+  prefix: "AN_"
+  parents:
+    skull: head
+    thorax: spine02
+    pelvis: root
+    scapula_{side}: "shoulder01.{side}"
+    manubrium: auto_axial
+    sternum_body: auto_axial
+    xiphoid_process: auto_axial
+    rib*_{side}: auto_axial
+    talocrural_{side}: "lowerleg02.{side}"
+    subtalar_{side}: "foot.{side}"
+
+# Per-patient spinal shape: the vertebral bodies (LM_C1..S5) are reshaped to sampled Cobb angles
+# (skin unchanged). Kyphosis grows with age; adult scoliosis prevalence grows with age.
+spine_shape:
+  enabled: true
+  kyphosis_deg: {mean_at_20: 27, per_year_after_20: 0.3, sd: 8, min: 10, max: 70}
+  lordosis_deg: {mean: 50, sd: 10, min: 25, max: 75}
+  scoliosis: {prevalence_at_40: 0.03, per_year_after_40: 0.004, cobb_range_deg: [10, 30],
+              apex_levels: [T7, T8, T9, L1, L2]}
+
+# Heights above the floor reported in the metadata (landmark name -> metadata key)
+heights_from_landmarks:
+  vertex: vertex_height_cm
+  tragus_L: ear_height_left_cm
+  tragus_R: ear_height_right_cm
+  nasion: nasion_height_cm
+  outer_canthus_L: eye_height_cm
+  chin: chin_height_cm
+  C7_surf: c7_height_cm
+  acromion_L: shoulder_height_left_cm
+  acromion_R: shoulder_height_right_cm
+  jugular_notch: jugular_notch_height_cm
+  sternal_angle: sternal_angle_height_cm
+  xiphoid: xiphoid_height_cm
+  scapula_inferior_angle_L: scapula_inferior_angle_height_cm
+  navel: navel_height_cm
+  iliac_crest_L: iliac_crest_height_cm
+  asis_L: asis_height_cm
+  greater_trochanter_L: trochanter_height_cm

@@ -117,6 +117,7 @@ ethnicity_profiles:
 | `enabled` | `true` (default) dresses every human with its variant. `false` generates all humans **unclothed**: no garments and no shoes (barefoot on the floor, no `hide_body_under` cut), `variants` / `fallback_variant` are ignored, `clothing.variant` is `none` and the body mesh gets no clothing `holeIndices` |
 | `variants.<name>.pct` | share of the population (exact quota) |
 | `variants.<name>.slots.<slot>.asset` | fixed MHCLO file (relative to `assets/` or absolute) |
+| `variants.<name>.slots.<slot>.garment` | an ID from `garment_catalog.yaml` (e.g. `L06`); the installed asset of that name is used. A missing asset follows `fallback_if_missing` like a fixed `asset:` |
 | `variants.<name>.slots.<slot>.mpfb_slot` | keyword pick from installed MPFB clothes: `chance` (0–100), `include_any`, `include_male`, `include_female`, `exclude`, `pack` (comma-separated, case-insensitive substrings). Same semantics as MPFB's own randomizer slots. |
 | `variants.<name>.slots.<slot>.male` / `.female` | a different slot per sex; a sex without an entry gets no garment in that slot (e.g. skirts only for women) |
 | `variants.<name>.slots.<slot>.one_of` | list of alternative slots with `weight`; one is picked per human |
@@ -139,31 +140,18 @@ ethnicity_profiles:
 | `layer_offset_cm` | the outer garment of a top + bottom pair is pushed out by this (trousers over tucked shirts, otherwise top over bottom) |
 | `gown_shaping.weight_smooth_iterations / weight_smooth_below` | blended skin weights on the lower gown (natural sway when animated) |
 
-Shipped variants (only gowns, shirts, t-shirts, jeans and, for women, a knee-length office skirt):
+Shipped variants (garments by catalogue ID, see 3.3a and `output/garment_catalog/`):
 
-| Variant | % | Upper | Lower | Shoes |
-|---|---|---|---|---|
-| `gown` | 25 | hospital gown, short sleeve | — | comfortable |
-| `gown_long_sleeve` | 10 | hospital gown, elbow sleeve | — | comfortable |
-| `gown_with_jeans` | 5 | short gown | jeans | comfortable |
-| `shirt` | 35 | shirt / polo (women also a blouse), recoloured from `garment_colors.shirt` | men: jeans; women: office skirt 60 % / jeans 40 % | formal |
-| `tshirt` | 25 | plain t-shirt, recoloured from `garment_colors.tshirt` | men: jeans; women: jeans 75 % / office skirt 25 % | comfortable 60 % / formal 40 % |
+| Variant | % | Men | Women |
+|---|---|---|---|
+| `full_outfit` | 50 | F01, F03 or F06 (casual suits) | F09 (casual suit) or F11 (elegant suit) |
+| `top_and_jeans` | 50 | U07 polo (recoloured from `garment_colors.shirt`) + L03 classic jeans | U13 or U14 sweater + L04 tight jeans |
 
-The office skirt is generated (`gown.yaml → variants.office_skirt`, knee length, pencil cut) and
-coloured from `garment_colors.skirt`. Within each group the model is picked at random from the YAML
-anchors `_shirts`, `_tshirts`, `_jeans`, `_formal_shoes`, `_comfort_shoes`, which keep the asset
-lists in one place. The chosen garments and colours are recorded per human in
-`H0001.json → clothing.items` (`asset`, `color`).
-
-Generate unclothed humans (whole run; the `clothing` stratum becomes `none` 100 %):
-
-```yaml
-enabled: false
-```
-
-Hair, eyebrows, eyelashes and eyes are still added. Rebuilding humans of an existing manifest with the flag off
-also leaves them unclothed (`clothing.items` is empty), but their `clothing.variant` keeps the name sampled into
-that manifest; start a new run to get `none` in the manifest, metadata and report.
+Shoes, equal chance per sex: men S01, S03, S08, S11, S25; women S02, S06, S07, S10, S14, S18.
+A full outfit is one mesh for top and bottom, so it is removed as a whole. The YAML anchor `_shoes` keeps the
+shoe lists in one place. The chosen garments and colours are recorded per human in
+`H0001.json → clothing.items` (`asset`, `color`). The hospital gowns and the office skirt are still generated
+(`gown.yaml`) and can be added back as `asset:` slots.
 
 Add a variant (requires installed MPFB clothes packs):
 
@@ -175,6 +163,44 @@ variants:
       upper_body: {mpfb_slot: {include_any: "scrub,tshirt"}}
       lower_body: {mpfb_slot: {include_any: "scrub,pants"}}
 ```
+
+Or pick garments by catalogue ID (see 3.3a):
+
+```yaml
+  knit_and_trousers:
+    pct: 10
+    slots:
+      upper_body: {one_of: [{weight: 50, garment: U14}, {weight: 50, garment: U15}]}
+      lower_body: {male: {garment: L06}, female: {garment: L08}}
+      feet: {male: {garment: S01}, female: {garment: S02}}
+```
+
+## 3.3a `garment_catalog.yaml`: garment IDs
+
+Every installed MPFB / MakeHuman clothes asset has a stable ID: `U` upper body, `L` lower body, `F` full outfit
+(one mesh for top and bottom, removed as a whole), `S` shoes, `H` hats. Each entry holds `asset` (asset name),
+`category`, `sex` (`male` / `female` / `any`), `rating` and `maps` (the asset's texture maps), plus optional `notes`.
+
+| Rating | Meaning |
+|---|---|
+| A | realistic, PBR maps (normal / specular / AO) |
+| B | plausible, diffuse-only or low resolution (looks flatter) |
+| C | low quality (very low poly, "crude") |
+| X | costume / fantasy / print or logo: not for clinical SDG |
+
+The ratings were first set from the asset metadata. Check them visually with the catalogue renderer, which dresses
+one reference male and one reference female (the first of each in a 10-human sample) with every garment, one at
+a time, and renders front + side with Cycles on the GPU (about 10 s per tile):
+
+```bash
+.venv/bin/python scripts/garment_catalog.py                    # all -> output/garment_catalog/
+.venv/bin/python scripts/garment_catalog.py --ids U14 L06 S01  # only these
+.venv/bin/python scripts/garment_catalog.py --category shoes --out /tmp/cat
+```
+
+Output: `tiles/<ID>_<sex>.png`, `catalog_<category>.png` sheets labelled `ID [rating] sex asset`, `catalog.png`
+(all) and `index.csv`. Garments render with their own MakeHuman material (normal / specular maps included), i.e.
+the asset at its best. The built humans currently keep only the diffuse map.
 
 ## 3.4 `gown.yaml`: gown generator
 

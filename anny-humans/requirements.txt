@@ -1,0 +1,10 @@
+# Python >= 3.10 (tested 3.12). Anny brings torch (CUDA wheels on Linux; CPU works too).
+anny[examples]>=0.6.0
+numpy>=1.26
+scipy>=1.11
+trimesh>=4.8
+rtree>=1.0
+usd-core>=24.0
+pillow>=10.0
+pyyaml>=6.0
+pytest>=8.0

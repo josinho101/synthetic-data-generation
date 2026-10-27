@@ -1,10 +1,11 @@
 # -----------------------------------------------------------------------------
-# Clothing variants. Each variant = percentage + slots. Allowed garments: hospital gowns,
-# shirts, t-shirts, jeans and (women only) a knee-length office skirt. Which model, which colour
-# and which shoes is randomised per human (seeded, reproducible).
+# Clothing variants. Each variant = percentage + slots. Garments are picked by catalogue ID
+# (garment_catalog.yaml; renders in output/garment_catalog/): full outfits, or a top with jeans.
+# Which outfit, colour and shoes is randomised per human (seeded, reproducible).
 #
 # A slot is one of:
 #   asset:     fixed MHCLO path (relative to the project's assets/ dir, or absolute)
+#   garment:   an ID from garment_catalog.yaml (e.g. L06 = mindfront_male_trousers_1)
 #   mpfb_slot: keyword pick from installed MPFB clothes packs, same semantics as
 #              MPFB's randomization clothes slots:
 #                chance (0-100), include_any, include_male, include_female, exclude, pack
@@ -14,70 +15,45 @@
 # Optional on any slot:
 #   recolor: <palette>   new colour from garment_colors.<palette> (shading / detail kept)
 # -----------------------------------------------------------------------------
-_formal_shoes: &formal_shoes
-  include_male: "mindfront_shoes_oxford_male,mindfront_shoes_monk_strap_male,callharvey3d_harvey_saddleshoes1"
-  include_female: "mindfront_shoes_oxford_female,mindfront_shoes_monk_strap_female,dressupdoc_balletflat1,dressupdoc_maryjane1,elvs_flatshoe_plain1"
-_comfort_shoes: &comfort_shoes
-  include_male: "punkduck_comfortable_sneakers,culturalibre_sneakers,punkduck_tennis_shoes"
-  include_female: "dressupdoc_balletflat1,elvs_flatshoe_plain1,elvs_flatshoe_buckle_1,punkduck_comfortable_sneakers"
-
-# Garment groups (MPFB pack asset names)
-_shirts: &shirts                 # button-down shirts / polo; women also a blouse
-  include_male: "elvs_male_shirt_untucked_bd1,elvs_male_shirt_tie_tucked1,namuhekam_male_polo_shirt"
-  include_female: "elvs_male_shirt_untucked_bd1,namuhekam_male_polo_shirt,punkduck_lace_up_blouse"
-_tshirts: &tshirts               # plain t-shirts (no prints)
-  include_male: "elvs_crude_t-shirt_male,toigo_basic_tucked_t-shirt"
-  include_female: "joepal_crude_t-shirt_female,toigo_basic_tucked_t-shirt"
-_jeans: &jeans
-  include_male: "punkduck_male_classic_jeans,elvs_jeans_straight_leg,elvs_jeans_bootcut"
-  include_female: "punkduck_female_tight_jeans,elvs_jeans_straight_leg"
+_shoes: &shoes                   # equal chance per shoe of the human's sex
+  male:
+    one_of:
+      - {garment: S01}           # mindfront oxford
+      - {garment: S03}           # mindfront monk strap
+      - {garment: S08}           # punkduck running shoes
+      - {garment: S11}           # culturalibre sneakers
+      - {garment: S25}           # shoes02
+  female:
+    one_of:
+      - {garment: S02}           # mindfront oxford
+      - {garment: S06}           # punkduck comfortable sneakers
+      - {garment: S07}           # punkduck tennis shoes
+      - {garment: S10}           # punkduck kill bill shoes
+      - {garment: S14}           # elvs flat shoe, buckle
+      - {garment: S18}           # dressupdoc ballet flat
 
 # false = every human is generated unclothed (no garments, no shoes; barefoot on the floor). The variants
 # below are then ignored, the clothing variant is recorded as "none" and usd_post authors no clothing holes.
-enabled: false
+enabled: true
 
 variants:
-  gown:                                     # generated hospital gown (knee length, short sleeve)
-    pct: 25
+  full_outfit:                              # one mesh for top + bottom (removed as a whole)
+    pct: 50
     slots:
-      full_body: {asset: custom/hospital_gown/gown_standard.mhclo}
-      feet:      {mpfb_slot: *comfort_shoes}
-  gown_long_sleeve:
-    pct: 10
+      full_body:
+        male:   {one_of: [{garment: F01}, {garment: F03}, {garment: F06}]}
+        female: {one_of: [{garment: F09}, {garment: F11}]}
+      feet: *shoes
+  top_and_jeans:                            # men: polo + classic jeans; women: sweater + tight jeans
+    pct: 50
     slots:
-      full_body: {asset: custom/hospital_gown/gown_long_sleeve.mhclo}
-      feet:      {mpfb_slot: *comfort_shoes}
-  gown_with_jeans:                          # short gown over jeans
-    pct: 5
-    slots:
-      full_body:  {asset: custom/hospital_gown/gown_short.mhclo}
-      lower_body: {mpfb_slot: *jeans}
-      feet:       {mpfb_slot: *comfort_shoes}
-  shirt:                                    # shirt + jeans (men); shirt + office skirt or jeans (women)
-    pct: 35
-    slots:
-      upper_body: {mpfb_slot: *shirts, recolor: shirt}
+      upper_body:
+        male:   {garment: U07, recolor: shirt}
+        female: {one_of: [{garment: U13}, {garment: U14}]}
       lower_body:
-        male:   {mpfb_slot: *jeans}
-        female:
-          one_of:
-            - {weight: 60, asset: custom/hospital_gown/office_skirt.mhclo, recolor: skirt}
-            - {weight: 40, mpfb_slot: *jeans}
-      feet: {mpfb_slot: *formal_shoes}
-  tshirt:                                   # t-shirt + jeans (women sometimes the office skirt)
-    pct: 25
-    slots:
-      upper_body: {mpfb_slot: *tshirts, recolor: tshirt}
-      lower_body:
-        male:   {mpfb_slot: *jeans}
-        female:
-          one_of:
-            - {weight: 75, mpfb_slot: *jeans}
-            - {weight: 25, asset: custom/hospital_gown/office_skirt.mhclo, recolor: skirt}
-      feet:
-        one_of:
-          - {weight: 60, mpfb_slot: *comfort_shoes}
-          - {weight: 40, mpfb_slot: *formal_shoes}
+        male:   {garment: L03}
+        female: {garment: L04}
+      feet: *shoes
 
 # Colour palettes for `recolor` (sRGB). The garment texture's shading and details are kept.
 garment_colors:
@@ -154,6 +130,6 @@ sock_recolor:
 #   error     : fail the human
 fallback_if_missing: skip_slot
 
-# Used when a variant ends up with no garment at all (e.g. mpfb_casual without clothes packs),
-# so nobody is generated unclothed.
-fallback_variant: gown
+# Used when a variant ends up with no garment at all (e.g. the clothes packs are not installed),
+# so nobody is generated unclothed by accident.
+fallback_variant: full_outfit

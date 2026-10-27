@@ -1,0 +1,111 @@
+# -----------------------------------------------------------------------------
+# Garment catalogue: stable IDs for the installed MPFB / MakeHuman clothes assets.
+# clothing.yaml slots can name a garment by ID (`garment: L06`) instead of `asset:` / `mpfb_slot:`.
+# Visual check: scripts/garment_catalog.py renders every entry onto reference humans.
+#
+#   category: upper | lower | full (one mesh for top + bottom) | shoes | hat
+#   sex:      who it is rendered on / fits (male | female | any)
+#   rating:   A realistic, PBR maps (normal / specular / AO)
+#             B plausible, diffuse-only or low-res (looks flatter)
+#             C low quality (very low poly, "crude")
+#             X costume / fantasy / print or logo: not for clinical SDG
+#   maps:     texture maps of the asset (D diffuse, N normal, S specular, AO, B bump) and their size
+# Ratings: from metadata, then corrected after the rendered catalogue (output/garment_catalog, 2026-10-26).
+# Shoe renders show the asset's own socks (S01-S04, S24-S29).
+# -----------------------------------------------------------------------------
+garments:
+  # ---------------------------------------------------------------- upper body
+  U01: {asset: elvs_crude_t-shirt_male,              category: upper, sex: male,   rating: C, maps: "D 1K"}
+  U02: {asset: joepal_crude_t-shirt_female,          category: upper, sex: female, rating: C, maps: "D 2K"}
+  U03: {asset: toigo_basic_tucked_t-shirt,           category: upper, sex: any,    rating: B, maps: "D 2K, B"}
+  U04: {asset: punkduck_deathnote_t-shirt,           category: upper, sex: any,    rating: X, maps: "D+N 2.5K", notes: print}
+  U05: {asset: elvs_male_shirt_untucked_bd1,         category: upper, sex: any,    rating: B, maps: "D 1K"}
+  U06: {asset: elvs_male_shirt_tie_tucked1,          category: upper, sex: male,   rating: B, maps: "D 1K"}
+  U07: {asset: namuhekam_male_polo_shirt,            category: upper, sex: any,    rating: B, maps: "D 2K"}
+  U08: {asset: ews_striped_shirt,                    category: upper, sex: female, rating: X, maps: "D 2K", notes: crop top}
+  U09: {asset: punkduck_lace_up_blouse,              category: upper, sex: female, rating: B, maps: "D+N 2K", notes: costume tag}
+  U10: {asset: punkduck_off-shoulder_long-sleeve_top, category: upper, sex: female, rating: B, maps: "D+N 2K"}
+  U11: {asset: elvs_male_boho_top1,                  category: upper, sex: male,   rating: X, maps: "D 1K"}
+  U12: {asset: elvs_hooded_sweat_jacket1,            category: upper, sex: any,    rating: B, maps: "D+N 1K"}
+  U13: {asset: janexx_old_female_sweater,            category: upper, sex: female, rating: B, maps: "D+N 2K"}
+  U14: {asset: mindfront_knitted_sweater_01,         category: upper, sex: any,    rating: A, maps: "D+N+S 2K"}
+  U15: {asset: mindfront_knitted_sweater_02,         category: upper, sex: any,    rating: A, maps: "D+N+S 2K"}
+  U16: {asset: mindfront_cardigan_long_open_front,   category: upper, sex: female, rating: A, maps: "D+N+S 4K", notes: long open cardigan - body visible at the front}
+  U17: {asset: mindfront_lusekofta,                  category: upper, sex: female, rating: A, maps: "D+N+S 4K", notes: bold Norwegian pattern}
+  U18: {asset: toigo_fisherman_sweater,              category: upper, sex: any,    rating: B, maps: "D 2K, B"}
+  U19: {asset: toigo_camisole_top,                   category: upper, sex: female, rating: X, maps: "D 2K", notes: pink patterned}
+  U20: {asset: toigo_keyhole_tank_top,               category: upper, sex: female, rating: X, maps: "D 1K", notes: leopard print}
+  U21: {asset: toigo_bodice-style_top,               category: upper, sex: female, rating: X, maps: "D+N+S 2K"}
+  U22: {asset: toigo_turtleneck_halter_top,          category: upper, sex: female, rating: X, maps: "D 2K", notes: pink halter}
+  U23: {asset: skalldyrssuppe_tube_top_funky_colors, category: upper, sex: female, rating: X, maps: "D 1K"}
+  # ---------------------------------------------------------------- lower body
+  L01: {asset: elvs_jeans_straight_leg,              category: lower, sex: any,    rating: B, maps: "D 1K"}
+  L02: {asset: elvs_jeans_bootcut,                   category: lower, sex: male,   rating: B, maps: "D 1K"}
+  L03: {asset: punkduck_male_classic_jeans,          category: lower, sex: male,   rating: A, maps: "D+N 2K"}
+  L04: {asset: punkduck_female_tight_jeans,          category: lower, sex: female, rating: A, maps: "D+N 2K"}
+  L06: {asset: mindfront_male_trousers_1,            category: lower, sex: male,   rating: A, maps: "D+N+S 4K", notes: distressed jeans}
+  L07: {asset: mindfront_male_trousers_2,            category: lower, sex: male,   rating: A, maps: "D+N+S 2K"}
+  L08: {asset: mindfront_female_trousers_1,          category: lower, sex: female, rating: A, maps: "D+N+S 4K", notes: jeans with an embroidered patch}
+  L09: {asset: elvs_male_trouser,                    category: lower, sex: male,   rating: B, maps: "D 1K"}
+  L10: {asset: elvs_male_trouser_with_chain,         category: lower, sex: male,   rating: X, maps: "D 1K", notes: chain}
+  L11: {asset: toigo_wool_pants,                     category: lower, sex: male,   rating: B, maps: "D 2K"}
+  L12: {asset: cortu_cargo_pants,                    category: lower, sex: any,    rating: C, maps: "D+N 2K", notes: 211 vertices}
+  L13: {asset: cortu_jeans_shorts,                   category: lower, sex: any,    rating: C, maps: "D+N 2K"}
+  L14: {asset: toigo_harem_pants,                    category: lower, sex: female, rating: X, maps: "D 2K"}
+  L15: {asset: elvs_disco_pants_skinny,              category: lower, sex: female, rating: X, maps: "D+N 2K"}
+  L16: {asset: elvs_disco_pants_single_ruffles,      category: lower, sex: female, rating: X, maps: "D+N 2K"}
+  L17: {asset: elvs_disco_pants_double_ruffles,      category: lower, sex: female, rating: X, maps: "D+N 2K"}
+  L18: {asset: elvs_gored_elephant_pants,            category: lower, sex: female, rating: X, maps: "D+N 2K"}
+  L19: {asset: frankyaye_mini_skirt_01,              category: lower, sex: female, rating: X, maps: "D 2K"}
+  L20: {asset: frankyaye_mini_skirt_02,              category: lower, sex: female, rating: X, maps: "D 2K"}
+  L21: {asset: toigo_tiered_mini_skirt,              category: lower, sex: female, rating: X, maps: "D+N+S 2K"}
+  L22: {asset: toigo_tiered_skirt,                   category: lower, sex: female, rating: X, maps: "D 2K", notes: pink tiered}
+  L23: {asset: toigo_long_full_skirt,                category: lower, sex: female, rating: B, maps: "D 2K"}
+  L24: {asset: toigo_skirt_with_lace_ruffle,         category: lower, sex: female, rating: B, maps: "D 2K"}
+  # ---------------------------------------------------------------- full outfits (one mesh: removed as a whole)
+  F01: {asset: male_casualsuit01,                    category: full,  sex: male,   rating: A, maps: "D 2K, N 2K, AO"}
+  F02: {asset: male_casualsuit02,                    category: full,  sex: male,   rating: X, maps: "D 2K, N 4K, AO", notes: MakeHuman logo t-shirt}
+  F03: {asset: male_casualsuit03,                    category: full,  sex: male,   rating: A, maps: "D 2K, N 4K, AO"}
+  F04: {asset: male_casualsuit04,                    category: full,  sex: male,   rating: X, maps: "D 2K, N 4K, AO", notes: MakeHuman logo t-shirt}
+  F05: {asset: male_casualsuit05,                    category: full,  sex: male,   rating: A, maps: "D 2K, N 4K, AO"}
+  F06: {asset: male_casualsuit06,                    category: full,  sex: male,   rating: A, maps: "D 2K, N 2K, AO"}
+  F07: {asset: male_elegantsuit01,                   category: full,  sex: male,   rating: B, maps: "D 2K"}
+  F08: {asset: male_worksuit01,                      category: full,  sex: male,   rating: A, maps: "D 2K, N 4K, AO"}
+  F09: {asset: female_casualsuit01,                  category: full,  sex: female, rating: X, maps: "D 2K, N 4K, AO", notes: MakeHuman logo t-shirt}
+  F10: {asset: female_casualsuit02,                  category: full,  sex: female, rating: X, maps: "D 2K, N 4K, AO", notes: MakeHuman logo t-shirt + denim shorts}
+  F11: {asset: female_elegantsuit01,                 category: full,  sex: female, rating: A, maps: "D+N 2K, AO"}
+  F12: {asset: female_sportsuit01,                   category: full,  sex: female, rating: B, maps: "D 2K, N 1K, AO", notes: crop top + leggings}
+  # ---------------------------------------------------------------- shoes
+  S01: {asset: mindfront_shoes_oxford_male,          category: shoes, sex: male,   rating: A, maps: "D+N+S 2K"}
+  S02: {asset: mindfront_shoes_oxford_female,        category: shoes, sex: female, rating: A, maps: "D+N+S 2K"}
+  S03: {asset: mindfront_shoes_monk_strap_male,      category: shoes, sex: male,   rating: A, maps: "D+N+S 2K"}
+  S04: {asset: mindfront_shoes_monk_strap_female,    category: shoes, sex: female, rating: A, maps: "D+N+S 2K"}
+  S05: {asset: callharvey3d_harvey_saddleshoes1,     category: shoes, sex: male,   rating: B, maps: "D 1K"}
+  S06: {asset: punkduck_comfortable_sneakers,        category: shoes, sex: any,    rating: B, maps: "D 2K"}
+  S07: {asset: punkduck_tennis_shoes,                category: shoes, sex: any,    rating: A, maps: "D+N 2K"}
+  S08: {asset: punkduck_running_shoes_01,            category: shoes, sex: any,    rating: B, maps: "D 2K"}
+  S09: {asset: punkduck_cycling_shoes,               category: shoes, sex: any,    rating: X, maps: "D 2K"}
+  S10: {asset: punkduck_kill_bill_shoes,             category: shoes, sex: any,    rating: X, maps: "D+N 2K"}
+  S11: {asset: culturalibre_sneakers,                category: shoes, sex: any,    rating: B, maps: "D 1K"}
+  S12: {asset: elvs_zombie_killer_sneakers,          category: shoes, sex: female, rating: X, maps: "D+N 2K", notes: 77k vertices}
+  S13: {asset: elvs_flatshoe_plain1,                 category: shoes, sex: female, rating: A, maps: "D+N 2K"}
+  S14: {asset: elvs_flatshoe_buckle_1,               category: shoes, sex: female, rating: A, maps: "D+N 2K"}
+  S15: {asset: elvs_flatshoe_bow1,                   category: shoes, sex: female, rating: B, maps: "D+N 2K"}
+  S16: {asset: elvs_flatshoe_gemmed1,                category: shoes, sex: female, rating: B, maps: "D+N 2K"}
+  S17: {asset: elvs_flatshoe_pointy1,                category: shoes, sex: female, rating: B, maps: "D+N 1K"}
+  S18: {asset: dressupdoc_balletflat1,               category: shoes, sex: female, rating: B, maps: "D 1K"}
+  S19: {asset: dressupdoc_maryjane1,                 category: shoes, sex: female, rating: B, maps: "D 1K"}
+  S20: {asset: dressupdoc_sandals1,                  category: shoes, sex: female, rating: B, maps: "D 1K"}
+  S21: {asset: elvs_caesar_sandals1,                 category: shoes, sex: female, rating: X, maps: "D+N 2K", notes: knee-high gladiator sandals}
+  S22: {asset: elvs_male_flip_flop_sandals1,         category: shoes, sex: male,   rating: B, maps: "D 1K"}
+  S23: {asset: elvs_basic_felt_elf_shoes,            category: shoes, sex: any,    rating: X, maps: "D 2K"}
+  S24: {asset: shoes01,                              category: shoes, sex: any,    rating: C, maps: "D+N 1K"}
+  S25: {asset: shoes02,                              category: shoes, sex: any,    rating: C, maps: "D 1K"}
+  S26: {asset: shoes03,                              category: shoes, sex: any,    rating: C, maps: "D 1K"}
+  S27: {asset: shoes04,                              category: shoes, sex: any,    rating: C, maps: "D+N 1K"}
+  S28: {asset: shoes05,                              category: shoes, sex: any,    rating: C, maps: "D 1K"}
+  S29: {asset: shoes06,                              category: shoes, sex: any,    rating: C, maps: "D 1K"}
+  S30: {asset: dressupdoc_domsjeans1,                category: shoes, sex: any,    rating: B, maps: "D 1K", notes: "light blue flats despite the name (was L05)"}
+  # ---------------------------------------------------------------- hats
+  H01: {asset: fedora01,                             category: hat,   sex: any,    rating: B, maps: "D 2K, N"}
+  H02: {asset: fedora_cocked,                        category: hat,   sex: any,    rating: B, maps: "D 2K, N"}

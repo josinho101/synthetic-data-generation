@@ -67,7 +67,8 @@ def run(args: dict) -> dict:
     with step("body_parts", timings):
         parts = assets.add_body_parts(ns, basemesh, armature, spec, cfg["appearance"], textures, report)
     with step("clothing", timings):
-        clothing = assets.add_clothing(ns, basemesh, spec, cfg["clothing"], textures, report)
+        clothing = assets.add_clothing(ns, basemesh, spec, cfg["clothing"], textures, report,
+                                       catalog=cfg.get("garment_catalog"))
     with step("floor", timings):
         lift_m = rig.lift_to_floor(armature)
         fit_result["footwear_lift_cm"] = round(lift_m * 100.0, 2)

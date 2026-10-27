@@ -2,7 +2,7 @@
 
 import re
 
-from ..clothing_match import leaf_slots
+from ..clothing_match import catalog_asset, leaf_slots
 
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 
@@ -92,17 +92,21 @@ def _validate_appearance(errors, app):
     _pct_block(errors, "appearance.eyes.colors", (app.get("eyes") or {}).get("colors"))
 
 
-def _validate_clothing(errors, clothing):
+def _validate_clothing(errors, clothing, catalog=None):
     if not isinstance(clothing.get("enabled", True), bool):
         errors.append("clothing.enabled: must be true | false")
     _pct_block(errors, "clothing.variants", clothing.get("variants"), "pct")
     for name, var in (clothing.get("variants") or {}).items():
         for slot, spec in ((var or {}).get("slots") or {}).items():
             leaves = leaf_slots(spec) if isinstance(spec, dict) else [None]
-            if not leaves or any(not isinstance(leaf, dict) or len({"asset", "mpfb_slot"} & set(leaf)) != 1
+            if not leaves or any(not isinstance(leaf, dict) or len({"asset", "mpfb_slot", "garment"} & set(leaf)) != 1
                                  for leaf in leaves):
                 errors.append(f"clothing.variants.{name}.slots.{slot}: every alternative needs exactly one of "
-                              "asset / mpfb_slot")
+                              "asset / mpfb_slot / garment")
+            for leaf in leaves:
+                if isinstance(leaf, dict) and "garment" in leaf and not catalog_asset(catalog, leaf["garment"]):
+                    errors.append(f"clothing.variants.{name}.slots.{slot}: garment '{leaf['garment']}' "
+                                  "not in garment_catalog.yaml")
             for leaf in leaves:
                 if isinstance(leaf, dict) and leaf.get("recolor") and leaf["recolor"] not in (clothing.get("garment_colors") or {}):
                     errors.append(f"clothing.variants.{name}.slots.{slot}: recolor '{leaf['recolor']}' "
@@ -170,7 +174,7 @@ def validate(cfg: dict) -> list:
     errors = []
     _validate_population(errors, cfg.get("population") or {}, cfg.get("appearance"))
     _validate_appearance(errors, cfg.get("appearance") or {})
-    _validate_clothing(errors, cfg.get("clothing") or {})
+    _validate_clothing(errors, cfg.get("clothing") or {}, cfg.get("garment_catalog") or {})
     _validate_landmarks(errors, cfg.get("landmarks") or {})
     _validate_export(errors, cfg.get("export") or {})
     _validate_anatomy(errors, cfg.get("anatomy") or {})

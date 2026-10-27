@@ -1,0 +1,24 @@
+# -----------------------------------------------------------------------------
+# X-ray exam posing (scripts/pose_exams.py, anny_humans/pose_rules.py - shared with the MPFB and MHR pipelines).
+# The poses, coupled motion and range-of-motion checks are rig independent; only these joint roles
+# are rig specific (USD joint names; Anny "makehuman" rig = MPFB default rig). "{side}" expands with side_tokens.
+# -----------------------------------------------------------------------------
+rig_name: Anny-MakeHuman
+side_tokens: {L: L, R: R}
+rig:
+  axial_chain: [root, spine05, spine04, spine03, spine02, spine01, neck01, neck02, neck03, head]
+  spine_chain: [spine05, spine04, spine03, spine02, spine01]
+  neck_chain: [neck01, neck02, neck03]
+  clavicle: "clavicle_{side}"
+  humerus: "upperarm01_{side}"
+  elbow: "lowerarm01_{side}"
+  wrist: "wrist_{side}"
+  femur: "upperleg01_{side}"
+  knee: "lowerleg01_{side}"
+  # twist distribution (joint, fraction): MPFB splits each limb segment into two chained bones
+  humerus_twist: [["upperarm01_{side}", 0.5], ["upperarm02_{side}", 0.5]]
+  forearm_twist: [["lowerarm01_{side}", 0.5], ["lowerarm02_{side}", 0.5]]
+  shank_twist: [["lowerleg01_{side}", 0.5], ["lowerleg02_{side}", 0.5]]
+  # rig fixes: the pelvis is one rigid ring, the index / middle metacarpals barely move
+  locked: [pelvis_L, pelvis_R, metacarpal1_L, metacarpal1_R, metacarpal2_L, metacarpal2_R]
+# rom: {elbow_flexion: [-10, 150], ...}   # optional override of pose_rules.ROM

@@ -15,10 +15,13 @@ _LOG = logging.getLogger("sdg_humans.blender.preview")
 
 
 def _pick_engine(candidates) -> str:
-    available = {item.identifier for item in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items}
-    for engine in candidates:
-        if engine in available:
+    render = bpy.context.scene.render
+    for engine in candidates:     # add-on engines (CYCLES) are not in the static enum, so try to set each one
+        try:
+            render.engine = engine
             return engine
+        except TypeError:
+            continue
     return "BLENDER_WORKBENCH"
 
 

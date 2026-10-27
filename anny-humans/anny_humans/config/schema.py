@@ -1,0 +1,234 @@
+"""Validation rules for the configuration. Each check appends readable error strings."""
+
+import re
+
+from ..clothing_match import leaf_slots
+
+_HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _pct_block(errors, where, block, value_key=None):
+    """Percent blocks are {name: pct} or {name: {pct: ...}} and must sum to 100."""
+    if not isinstance(block, dict) or not block:
+        errors.append(f"{where}: must be a non-empty mapping")
+        return
+    total = 0.0
+    for name, value in block.items():
+        pct = value.get(value_key) if (value_key and isinstance(value, dict)) else value
+        if not isinstance(pct, (int, float)) or pct < 0:
+            errors.append(f"{where}.{name}: percentage must be a number >= 0 (got {pct!r})")
+            continue
+        total += pct
+    if abs(total - 100.0) > 1e-6:
+        errors.append(f"{where}: percentages must sum to 100 (got {total:g})")
+
+
+def _range(errors, where, value, lo=0.0, hi=1.0):
+    ok = isinstance(value, (list, tuple)) and len(value) == 2 and all(isinstance(v, (int, float)) for v in value)
+    if not ok or not (lo <= value[0] <= value[1] <= hi):
+        errors.append(f"{where}: must be [min, max] with {lo} <= min <= max <= {hi} (got {value!r})")
+
+
+AGE_LIMITS = (18, 70)   # adults only: 18 <= age_range.min < age_range.max <= 70
+
+
+def age_range(pop: dict) -> tuple:
+    """(min, max) whole years from population.age_range."""
+    rng = pop.get("age_range") or {}
+    return int(rng.get("min", AGE_LIMITS[0])), int(rng.get("max", AGE_LIMITS[1]))
+
+
+def effective_age_bands(pop: dict) -> dict:
+    """age_bands clipped to age_range: bands outside the range are dropped, the others clipped ("18-30" with
+    age_range 25-70 -> "25-30"), percentages renormalised to 100."""
+    lo, hi = age_range(pop)
+    clipped = {}
+    for band, pct in (pop.get("age_bands") or {}).items():
+        a, b = (int(x) for x in str(band).split("-"))
+        a, b = max(a, lo), min(b, hi)
+        if a <= b and float(pct) > 0:
+            clipped[f"{a}-{b}"] = float(pct)
+    total = sum(clipped.values())
+    return {band: round(100.0 * pct / total, 6) for band, pct in clipped.items()} if total else {}
+
+
+def _validate_age(errors, pop):
+    rng = pop.get("age_range")
+    lo_limit, hi_limit = AGE_LIMITS
+    if not isinstance(rng, dict) or not all(isinstance(rng.get(k), int) and not isinstance(rng.get(k), bool)
+                                            for k in ("min", "max")):
+        errors.append("population.age_range: must be {min: <years>, max: <years>} with whole years")
+        return
+    if rng["min"] < lo_limit:
+        errors.append(f"population.age_range.min: must be >= {lo_limit} (got {rng['min']})")
+    if rng["max"] > hi_limit:
+        errors.append(f"population.age_range.max: must be <= {hi_limit} (got {rng['max']})")
+    if rng["min"] >= rng["max"]:
+        errors.append(f"population.age_range: min must be < max (got {rng['min']} >= {rng['max']})")
+    bands = pop.get("age_bands") or {}
+    if bands and all(re.match(r"^(\d+)-(\d+)$", str(b)) for b in bands) and not effective_age_bands(pop):
+        errors.append(f"population.age_bands: no band overlaps age_range {rng['min']}-{rng['max']}")
+    mapping = pop.get("age_years_to_anny")
+    if not (isinstance(mapping, list) and len(mapping) >= 2
+            and all(isinstance(p, (list, tuple)) and len(p) == 2 for p in mapping)):
+        errors.append("population.age_years_to_anny: must be [[years, value], ...] with at least 2 points")
+
+
+def _validate_population(errors, pop, appearance):
+    if not isinstance(pop.get("count"), int) or pop["count"] < 1:
+        errors.append("population.count: must be an integer >= 1")
+    if not isinstance(pop.get("seed"), int):
+        errors.append("population.seed: must be an integer")
+    _pct_block(errors, "population.sex", pop.get("sex"))
+    for sex in (pop.get("sex") or {}):
+        if sex not in ("male", "female"):
+            errors.append(f"population.sex.{sex}: only 'male' and 'female' are supported")
+        _range(errors, f"population.gender_macro.{sex}", (pop.get("gender_macro") or {}).get(sex))
+    _pct_block(errors, "population.age_bands", pop.get("age_bands"))
+    for band in (pop.get("age_bands") or {}):
+        m = re.match(r"^(\d+)-(\d+)$", str(band))
+        if not m or int(m.group(1)) > int(m.group(2)):
+            errors.append(f"population.age_bands.{band}: band must look like '18-30'")
+    _validate_age(errors, pop)
+    _pct_block(errors, "population.ethnicity", pop.get("ethnicity"))
+    profiles = (appearance or {}).get("ethnicity_profiles") or {}
+    for eth in (pop.get("ethnicity") or {}):
+        if eth not in profiles:
+            errors.append(f"population.ethnicity.{eth}: no profile in appearance.ethnicity_profiles")
+    _pct_block(errors, "population.somatotype", pop.get("somatotype"), "pct")
+    for name, spec in (pop.get("somatotype") or {}).items():
+        for macro in ("weight", "muscle", "proportions"):
+            _range(errors, f"population.somatotype.{name}.{macro}", (spec or {}).get(macro))
+    height = pop.get("height_cm") or {}
+    for sex in (pop.get("sex") or {}):
+        h = height.get(sex) or {}
+        if not all(isinstance(h.get(k), (int, float)) for k in ("mean", "sd", "min", "max")):
+            errors.append(f"population.height_cm.{sex}: needs mean, sd, min, max")
+        elif not (h["min"] <= h["mean"] <= h["max"]) or h["sd"] <= 0:
+            errors.append(f"population.height_cm.{sex}: require min <= mean <= max and sd > 0")
+    order = pop.get("stratify_order") or []
+    allowed = {"sex", "ethnicity", "age_bands", "somatotype", "clothing"}
+    for item in order:
+        if item not in allowed:
+            errors.append(f"population.stratify_order: unknown stratum '{item}' (allowed {sorted(allowed)})")
+
+
+def _validate_appearance(errors, app):
+    tones = app.get("skin_tones_rgb") or {}
+    for tone, rgb in tones.items():
+        if not isinstance(rgb, str) or not _HEX.match(rgb):
+            errors.append(f"appearance.skin_tones_rgb.{tone}: must be '#rrggbb'")
+    for eth, prof in (app.get("ethnicity_profiles") or {}).items():
+        mix = (prof or {}).get("race_mix") or {}
+        if set(mix) != {"asian", "caucasian", "african"}:
+            errors.append(f"appearance.ethnicity_profiles.{eth}.race_mix: needs asian, caucasian, african")
+        for tone in ((prof or {}).get("skin_tone_weights") or {}):
+            if tone not in tones:
+                errors.append(f"appearance.ethnicity_profiles.{eth}: skin tone {tone} not in skin_tones_rgb")
+    albedo = app.get("skin_albedo_lab") or {}
+    for tone in tones:
+        lab = albedo.get(tone)
+        if not (isinstance(lab, (list, tuple)) and len(lab) == 3 and 0 < float(lab[0]) <= 100):
+            errors.append(f"appearance.skin_albedo_lab.{tone}: must be [L*, a*, b*] with 0 < L* <= 100")
+    if (app.get("skin") or {}).get("source") not in ("auto", "flat", "mhmat"):
+        errors.append("appearance.skin.source: must be auto | flat | mhmat")
+    if (app.get("eyes") or {}).get("source", "pack") not in ("pack", "generated"):
+        errors.append("appearance.eyes.source: must be pack | generated")
+    for section, triple in ((app.get("face") or {}).get("sections") or {}).items():
+        if not (isinstance(triple, list) and len(triple) == 3 and triple[0] <= triple[1]):
+            errors.append(f"appearance.face.sections.{section}: must be [min_picks, max_picks, deviation]")
+    _pct_block(errors, "appearance.eyes.colors", (app.get("eyes") or {}).get("colors"))
+
+
+def _validate_clothing(errors, clothing):
+    _pct_block(errors, "clothing.variants", clothing.get("variants"), "pct")
+    for name, var in (clothing.get("variants") or {}).items():
+        for slot, spec in ((var or {}).get("slots") or {}).items():
+            leaves = leaf_slots(spec) if isinstance(spec, dict) else [None]
+            if not leaves or any(not isinstance(leaf, dict) or len({"asset", "mpfb_slot"} & set(leaf)) != 1
+                                 for leaf in leaves):
+                errors.append(f"clothing.variants.{name}.slots.{slot}: every alternative needs exactly one of "
+                              "asset / mpfb_slot")
+            for leaf in leaves:
+                if isinstance(leaf, dict) and leaf.get("recolor") and leaf["recolor"] not in (clothing.get("garment_colors") or {}):
+                    errors.append(f"clothing.variants.{name}.slots.{slot}: recolor '{leaf['recolor']}' "
+                                  "not in clothing.garment_colors")
+    if clothing.get("fallback_if_missing") not in ("skip_slot", "error"):
+        errors.append("clothing.fallback_if_missing: must be skip_slot | error")
+    fallback = clothing.get("fallback_variant")
+    if fallback and fallback not in (clothing.get("variants") or {}):
+        errors.append(f"clothing.fallback_variant: '{fallback}' is not a defined variant")
+
+
+def _validate_landmarks(errors, lm):
+    spine = lm.get("spine") or {}
+    levels = spine.get("levels") or []
+    for level in levels:
+        if level not in (spine.get("segment_ratios") or {}):
+            errors.append(f"landmarks.spine.segment_ratios: missing ratio for {level}")
+    anchors = lm.get("anchors") or {}
+    for level, anchor in (spine.get("pins") or {}).items():
+        if level not in levels:
+            errors.append(f"landmarks.spine.pins.{level}: not a spine level")
+        if anchor not in anchors:
+            errors.append(f"landmarks.spine.pins.{level}: anchor '{anchor}' not in anchors")
+    for key in ("top_anchor", "bottom_anchor"):
+        if spine.get(key) not in anchors:
+            errors.append(f"landmarks.spine.{key}: '{spine.get(key)}' not in anchors")
+    regions = {str(level)[0] for level in levels}
+    depth = spine.get("internal_depth") or {}
+    for region in sorted(regions):
+        rule = depth.get(region)
+        if not isinstance(rule, dict) or len({"fraction", "fixed_cm"} & set(rule)) != 1:
+            errors.append(f"landmarks.spine.internal_depth.{region}: needs exactly one of fraction / fixed_cm")
+
+
+def _validate_export(errors, export):
+    if not isinstance(export.get("output_root"), str) or not export.get("output_root"):
+        errors.append("export.output_root: required")
+    if not isinstance(export.get("workers"), int) or export["workers"] < 1:
+        errors.append("export.workers: must be an integer >= 1")
+    if export.get("device", "auto") not in ("auto", "cuda", "cpu"):
+        errors.append("export.device: must be auto | cuda | cpu")
+    if export.get("asset_mode") not in ("auto", "required"):
+        errors.append("export.asset_mode: must be auto | required")
+    if (export.get("usd") or {}).get("file_format") not in ("usd", "usda", "usdc"):
+        errors.append("export.usd.file_format: must be usd | usda | usdc")
+    root = (export.get("usd_post") or {}).get("root_joint")
+    if root and str(root).lower() == "root":
+        errors.append("export.usd_post.root_joint: must differ from the rig's 'root' (case-insensitive)")
+
+
+def _validate_body(errors, body):
+    if body.get("rig") not in ("makehuman", "anny"):
+        errors.append("body.rig: must be makehuman | anny")
+    if body.get("topology") != "makehuman":
+        errors.append("body.topology: only 'makehuman' is supported (landmark anchors and MHCLO assets use hm08 IDs)")
+    scale = body.get("max_uniform_scale", 0.0)
+    if not isinstance(scale, (int, float)) or not 0 <= scale < 0.5:
+        errors.append("body.max_uniform_scale: must be a number in [0, 0.5)")
+
+
+def _validate_anatomy(errors, anatomy):
+    known = {"skull", "vertebrae", "ribs", "sternum", "shoulder_girdle", "pelvis", "limbs", "hands_feet"}
+    for part in anatomy.get("parts") or []:
+        if part not in known:
+            errors.append(f"anatomy.parts: unknown part '{part}' (allowed {sorted(known)})")
+    for key in ("rib_anterior_drop_cm", "rib_end_angle_deg"):
+        if len(anatomy.get(key) or []) != 12:
+            errors.append(f"anatomy.{key}: needs 12 values (ribs 1-12)")
+
+
+def validate(cfg: dict) -> list:
+    """Return a list of human-readable errors (empty when the config is valid)."""
+    errors = []
+    _validate_population(errors, cfg.get("population") or {}, cfg.get("appearance"))
+    _validate_appearance(errors, cfg.get("appearance") or {})
+    _validate_clothing(errors, cfg.get("clothing") or {})
+    _validate_landmarks(errors, cfg.get("landmarks") or {})
+    _validate_export(errors, cfg.get("export") or {})
+    _validate_body(errors, cfg.get("body") or {})
+    _validate_anatomy(errors, cfg.get("anatomy") or {})
+    if not isinstance((cfg.get("logging") or {}).get("dict_config"), dict):
+        errors.append("logging.dict_config: required (logging.config.dictConfig mapping)")
+    return errors

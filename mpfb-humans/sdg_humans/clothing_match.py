@@ -54,8 +54,14 @@ def variant_pcts(clothing: dict) -> dict:
     return {k: v["pct"] for k, v in clothing["variants"].items()}
 
 
+def catalog_asset(catalog: dict, garment_id: str):
+    """Asset name of a garment_catalog.yaml ID (e.g. "L06" -> "mindfront_male_trousers_1"), None if unknown."""
+    entry = ((catalog or {}).get("garments") or {}).get(str(garment_id))
+    return entry.get("asset") if entry else None
+
+
 def resolve_slot(slot: dict, sex: str, rng: random.Random):
-    """Turn a configured slot into one concrete slot ({asset: ...} or {mpfb_slot: ...}, plus
+    """Turn a configured slot into one concrete slot ({asset: ...}, {mpfb_slot: ...} or {garment: ID}, plus
     options such as `recolor`), or None when the slot does not apply to this sex.
 
     * `male:` / `female:` keys give a different slot per sex (a missing sex = no garment);

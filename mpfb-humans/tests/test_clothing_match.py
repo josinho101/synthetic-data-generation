@@ -41,17 +41,27 @@ def test_resolve_slot_per_sex_and_one_of():
     assert len(leaf_slots(slot)) == 3
 
 
-def test_skirt_only_for_females_in_config():
+def test_config_garments_match_the_sex():
     import random
     from sdg_humans.clothing_match import resolve_slot
     from sdg_humans.config import load_config
-    cfg = load_config("configs")["clothing"]
+    cfg = load_config("configs")
+    catalog = cfg["garment_catalog"]["garments"]
     rng = random.Random(7)
-    seen_female_skirt = False
+    seen = {"male": set(), "female": set()}
     for _ in range(50):
-        for variant in cfg["variants"].values():
+        for variant in cfg["clothing"]["variants"].values():
             for slot in variant["slots"].values():
-                male = resolve_slot(slot, "male", rng)
-                assert male is None or "skirt" not in str(male).lower()
-                seen_female_skirt |= "skirt" in str(resolve_slot(slot, "female", rng)).lower()
-    assert seen_female_skirt
+                for sex in seen:
+                    leaf = resolve_slot(slot, sex, rng)
+                    if leaf and "garment" in leaf:
+                        assert catalog[leaf["garment"]]["sex"] in (sex, "any"), (sex, leaf)
+                        seen[sex].add(leaf["garment"])
+    assert {"F01", "U07", "L03", "S01"} <= seen["male"] and {"F11", "U14", "L04", "S02"} <= seen["female"]
+
+
+def test_catalog_asset_lookup():
+    from sdg_humans.clothing_match import catalog_asset
+    catalog = {"garments": {"L06": {"asset": "mindfront_male_trousers_1"}}}
+    assert catalog_asset(catalog, "L06") == "mindfront_male_trousers_1"
+    assert catalog_asset(catalog, "L99") is None and catalog_asset(None, "L06") is None

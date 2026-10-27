@@ -121,5 +121,6 @@ Turning off the preview (`preview.engines: [BLENDER_WORKBENCH]`, lower `resoluti
 .venv/bin/python scripts/contact_sheet.py output/humans/run-… --columns 10
 .venv/bin/python scripts/make_gown.py [--variant gown_short]
 .venv/bin/python scripts/calibrate_anchors.py --auto [--overwrite] [--dry-run]
+.venv/bin/python scripts/garment_catalog.py [--ids U14 L06] [--category shoes]   # render the garment catalogue
 .venv/bin/python scripts/sample_population.py [--dry-run] [--out manifest.json]
 ```

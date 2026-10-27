@@ -41,3 +41,19 @@ def test_anatomy_config_validation(cfg):
     errors = validate(cfg)
     assert any("unknown part 'tail'" in e for e in errors)
     assert any("rib_end_angle_deg" in e for e in errors)
+
+
+def test_garment_id_slots_are_validated(cfg):
+    slots = cfg["clothing"]["variants"]["top_and_jeans"]["slots"]
+    slots["lower_body"] = {"garment": "L06"}
+    assert validate(cfg) == []
+    slots["lower_body"] = {"garment": "Z99"}
+    assert any("garment 'Z99' not in garment_catalog.yaml" in e for e in validate(cfg))
+
+
+def test_garment_catalog_ids_are_unique_and_complete(cfg):
+    garments = cfg["garment_catalog"]["garments"]
+    assert len({g["asset"] for g in garments.values()}) == len(garments)
+    for gid, entry in garments.items():
+        assert gid[0] == {"upper": "U", "lower": "L", "full": "F", "shoes": "S", "hat": "H"}[entry["category"]]
+        assert entry["sex"] in ("male", "female", "any") and entry["rating"] in ("A", "B", "C", "X", "?")

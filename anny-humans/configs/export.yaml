@@ -1,0 +1,47 @@
+# -----------------------------------------------------------------------------
+# Runtime, environment and USD export settings.
+# -----------------------------------------------------------------------------
+output_root: /home/gehc-1/Joseph/SandBox/synthetic-data-generation/output/anny-humans   # each run -> <output_root>/run-<timestamp>/
+run_dir_format: "run-%Y%m%d-%H%M%S"
+
+# Environment requirements (checked by the preflight)
+min_python: "3.10"
+min_anny: "0.6.0"
+device: auto                    # auto | cuda | cpu (Anny forward passes; tiny, CPU is fine too)
+anny_cache_dir: auto            # auto = ~/.cache/anny (ANNY_CACHE_DIR); first model load builds the cache (minutes)
+
+# MakeHuman asset packs (skins, eyes, hair, eyebrows, eyelashes, clothes). They are shared with the MPFB pipeline:
+# install them once with mpfb-humans/scripts/install_asset_packs.py (MPFB user data dir).
+#   auto : the MPFB user data dir (~/.config/blender/<version>/extensions/.user/blender_org/mpfb/data)
+makehuman_assets_dir: auto
+#   auto     : use installed packs, fall back to flat skin / generated eyes / no hair with a WARNING
+#   required : preflight fails when no MakeHuman system assets are installed
+asset_mode: auto
+
+workers: 1                      # parallel build threads (this machine has 2 CPU cores)
+retries: 1
+est_mb_per_human: 30            # used for the free-disk check (~25 MB measured)
+
+usd:
+  file_format: usd              # usd (binary crate) | usda (text) | usdc
+  meters_per_unit: 1.0
+  up_axis: Z
+  max_bone_influences: 4
+  normals: true                 # smooth vertex normals on every mesh (no faceting under RTX)
+  mdl: true                     # also author MDL OmniSurface shaders (Isaac Sim RTX: skin subsurface, cloth sheen);
+                                # UsdPreviewSurface is always written (portable fallback)
+
+# Fixes applied to the written USD (anny_humans/usd_post.py), so the human animates cleanly in
+# Isaac Sim / other retargeters. Recorded in <id>.json -> usd_post.
+usd_post:
+  enabled: true
+  clothing_holes: true          # body faces fully covered by garments -> holeIndices (not rendered; mesh kept complete),
+                                # so skin cannot poke through the clothes when the human moves
+  clothing_reach_cm: 7          # skin counts as covered when cloth lies within this distance outside it (loose sleeves)
+  clothing_min_covered_fraction: 0.75   # a face is hidden when this share of its vertices and its centre are covered
+  anatomy_purpose: guide        # bone_* anatomy meshes: guide = kept but not rendered (they poke through skin in poses); default = rendered
+  root_joint: SkelOrigin        # identity root joint above the rig's pelvis "root" (retargeting needs it); null = rig as is
+
+preview:
+  resolution: [512, 768]        # per view; front + left side are placed next to each other
+  background_rgb: "#d9dde3"
