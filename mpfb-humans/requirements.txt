@@ -4,3 +4,7 @@ numpy>=1.26
 usd-core>=24.0
 pillow>=10.0
 pytest>=8.0
+# skeletal layer 'zanatomy' (configs/skeleton.yaml): CPU wheels are enough, e.g.
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch && pip install -r requirements.txt
+torch>=2.2
+scipy>=1.11

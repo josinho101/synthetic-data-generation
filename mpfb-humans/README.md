@@ -9,12 +9,16 @@ Every human:
 
 - differs in sex, age, ethnicity (MPFB race mix), skin tone (Monk scale), height, somatotype
   (→ weight / BMI), face shape (MPFB detail targets), eye colour and clothing;
-- carries **128 landmark joints + 5 anatomical frames** in its skeleton (C1–C7, T1–T12, L1–L5, S1–S5 as oriented vertebral-body
-  *and* skin-surface points; head, sternum, scapulae, pelvis, elbow, wrist, knee and ankle
-  landmarks; ISB-style skull, thorax, pelvis and scapula frames, see
-  [docs/06_landmarks.md](docs/06_landmarks.md)). The landmarks follow any animation applied in Isaac Sim;
-- has a **schematic anatomical skeleton** (~80 bone meshes: skull, vertebrae, ribs, sternum,
-  shoulder girdle, pelvis, limbs, hands, feet) inside the body, skinned to the rig;
+- has a **skeleton from a swappable skeletal layer** (`configs/skeleton.yaml`,
+  [docs/14_skeleton_layer.md](docs/14_skeleton_layer.md)). Default **`zanatomy`**: the real **Z-Anatomy** bone meshes
+  (156 bones, CC BY-SA 4.0) fitted *into* the finished body, and the rig is the **anatomical rig**
+  (`SkelOrigin/pelvis/…`, `femur_L`, `vertebra_T6`, …; Z-Anatomy joints only). Body, skin, clothes and hair are
+  untouched. Alternatives: `procedural` (schematic ~80 bone meshes on the MPFB rig, [docs/11](docs/11_anatomy.md))
+  or `none`;
+- has **landmarks** (C1–C7, T1–T12, L1–L5, S1–S5 vertebral-body and skin-surface points; head, sternum, scapulae,
+  pelvis, elbow, wrist, knee and ankle landmarks; ISB-style frames, see [docs/06_landmarks.md](docs/06_landmarks.md))
+  in `<id>.json`. With the `procedural` / `none` layers they are also joints of the MPFB rig (`LM_*`, `AN_*`) and
+  follow animation; with `zanatomy` they are data only, and the bony landmarks come from the fitted skeleton;
 - has **hair, eyebrows and eyelashes** (MakeHuman system assets, tinted per human);
 - wears a **hospital gown** (striped or solid, natural shoulders, short trimmed sleeves, knee length,
   open back with ties) or a **shirt / t-shirt with jeans** (women also a knee-length office skirt),
@@ -55,7 +59,9 @@ processes; you never need to open Blender again.)
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt        # pyyaml, numpy, usd-core, pillow, pytest
+.venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch   # CPU torch (skeletal layer)
+.venv/bin/pip install -r requirements.txt        # pyyaml, numpy, usd-core, pillow, pytest, scipy
+.venv/bin/python scripts/build_zanatomy_reference.py   # one time: Z-Anatomy reference package -> assets/zanatomy
 ```
 
 **4. Edit `configs/export.yaml`** for this machine:
@@ -150,7 +156,8 @@ run-20261018-153012/
 | `configs/clothing.yaml` | clothing variants % (hospital gowns, MPFB clothes slots), gown colours and shaping |
 | `configs/gown.yaml` | hospital gown generator (length, sleeves, looseness, neckline, back opening) |
 | `configs/landmarks.yaml` | anchor vertices, vertebra distribution, parent bones, reported heights |
-| `configs/anatomy.yaml` | anatomical skeleton (bone meshes): parts, colour, rib shape, soft tissue |
+| `configs/skeleton.yaml` | skeletal layer: `zanatomy` (Z-Anatomy, anatomical rig) / `procedural` / `none`, fit settings |
+| `configs/anatomy.yaml` | `procedural` layer only: schematic bone meshes, parts, colour, rib shape, soft tissue |
 | `configs/export.yaml` | output root, Blender path, workers, USD / preview / bake options |
 | `configs/logging.yaml` | log levels, files, rotation |
 
@@ -169,6 +176,7 @@ run-20261018-153012/
 11. [Anatomical skeleton](docs/11_anatomy.md)
 12. [Animation in Isaac Sim](isaac/README.md)
 13. [MPFB vs MHR comparison (skeleton, landmarks, exam poses)](docs/13_mpfb_vs_mhr.md)
+14. [Skeletal layer (Z-Anatomy)](docs/14_skeleton_layer.md)
 
 ## Tests
 

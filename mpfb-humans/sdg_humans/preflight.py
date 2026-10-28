@@ -169,6 +169,17 @@ def check_asset_packs(cfg, install=False) -> CheckResult:
                        "--install-packs or scripts/install_asset_packs.py", {"missing": [p["name"] for p in missing]})
 
 
+def check_skeleton_layer(cfg) -> CheckResult:
+    """configs/skeleton.yaml -> layer: its own requirements (e.g. torch + the Z-Anatomy reference package)."""
+    from .skeleton import get_layer
+    try:
+        layer = get_layer(cfg)
+        status, detail = layer.preflight()
+    except Exception as exc:  # noqa: BLE001 - reported as a failed check
+        return CheckResult("skeleton layer", "error", str(exc))
+    return CheckResult("skeleton layer", status, f"{layer.name}: {detail}")
+
+
 def run_preflight(cfg, auto_fix=True, gown_generator=None, install_packs=False) -> list:
     """Run all checks. With auto_fix, missing gown assets are generated (gown_generator(cfg)).
     With install_packs (or export.install_missing_packs), missing asset packs are downloaded."""
@@ -184,7 +195,7 @@ def run_preflight(cfg, auto_fix=True, gown_generator=None, install_packs=False) 
         gowns = check_gowns(cfg)
         if result.get("status") != "ok":
             gowns.detail += f" (generation failed: {result.get('error')})"
-    checks += [gowns, check_anchors(cfg), check_output(cfg)]
+    checks += [gowns, check_anchors(cfg), check_skeleton_layer(cfg), check_output(cfg)]
     return checks
 
 

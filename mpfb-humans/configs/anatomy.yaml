@@ -2,6 +2,7 @@
 # Anatomical skeleton: bone meshes generated per human from its rig joints, spine
 # landmarks and body surface, each skinned to its rig bone (moves with animation).
 # Exported in the USD as meshes "bone_<name>" under the SkelRoot.
+# Used only by the 'procedural' skeletal layer (configs/skeleton.yaml -> layer).
 # -----------------------------------------------------------------------------
 enabled: true
 

@@ -1,4 +1,5 @@
-"""Pipeline orchestration: preflight -> sample -> build (parallel Blender workers) -> validate -> report."""
+"""Pipeline orchestration: preflight -> sample -> build (parallel Blender workers) -> USD post -> skeletal layer
+-> validate -> report."""
 
 import json
 import logging
@@ -37,14 +38,16 @@ def _build_one(cfg: dict, ctx, spec: dict) -> dict:
     """Build one human in its own Blender process (with retries) and validate the USD."""
     export = cfg["export"]
     log = ctx.human_log(spec["id"])
-    args = {"config": cfg, "spec": spec, "human_dir": str(ctx.human_dir(spec["id"])), "run_id": ctx.run_id,
+    work_dir = ctx.run_dir / "work" / spec["id"]
+    args = {"config": cfg, "spec": spec, "human_dir": str(ctx.human_dir(spec["id"])), "work_dir": str(work_dir),
+            "run_id": ctx.run_id,
             "generator_version": __version__, "log_level": cfg["logging"].get("worker_level", "INFO"),
             "log_format": cfg["logging"].get("worker_format")}
     attempts = int(export.get("retries", 0)) + 1
     result = {}
     for attempt in range(1, attempts + 1):
         result = run_task(export["blender_bin"], "build", args, log, int(export.get("timeout_s_per_human", 1200)),
-                          work_dir=ctx.run_dir / "work" / spec["id"])
+                          work_dir=work_dir)
         if result.get("status") in ("ok", "warn"):
             break
         _LOG.warning(f"{spec['id']}: attempt {attempt}/{attempts} failed: {result.get('error')}")
@@ -58,6 +61,12 @@ def _build_one(cfg: dict, ctx, spec: dict) -> dict:
             except Exception as exc:  # noqa: BLE001 - reported as a failed build
                 result["status"], result["error"] = "failed", f"USD post-processing: {exc}"
                 return result
+        try:
+            result["skeleton_layer"] = _apply_skeleton_layer(cfg, spec["id"], human_dir, work_dir, result)
+        except Exception as exc:  # noqa: BLE001 - reported as a failed build
+            _LOG.exception(f"{spec['id']}: skeletal layer failed")
+            result["status"], result["error"] = "failed", f"skeletal layer: {exc}"
+            return result
         check = validate_usd(result["usd"], human_dir / f"{spec['id']}.json",
                              cfg["landmarks"].get("bone_prefix", "LM_"),
                              int(export["usd"].get("max_bone_influences", 4)))
@@ -68,7 +77,10 @@ def _build_one(cfg: dict, ctx, spec: dict) -> dict:
             result["status"] = "warn"
             result.setdefault("warnings", []).extend(check["warnings"])
         anim_cfg = export.get("animation") or {}
-        if anim_cfg.get("enabled") and result["status"] != "failed":
+        if anim_cfg.get("enabled") and result.get("skeleton_layer", {}).get("rig_replaced"):
+            _LOG.warning(f"{spec['id']}: animation skipped - it drives MPFB joint names and the skeletal layer "
+                         f"replaced the rig")
+        elif anim_cfg.get("enabled") and result["status"] != "failed":
             try:
                 result["animation"] = str(write_animation(Path(result["usd"]), anim_cfg))
             except Exception as exc:  # noqa: BLE001 - animation is optional
@@ -92,6 +104,41 @@ def _postprocess(usd_path, meta_path: Path, post_cfg: dict) -> dict:
     meta["usd_post"] = info
     meta_path.write_text(json.dumps(meta, indent=2))
     _LOG.info(f"{meta.get('id')}: USD post-processing {info}")
+    return info
+
+
+def _apply_skeleton_layer(cfg: dict, hid: str, human_dir: Path, work_dir: Path, result: dict) -> dict:
+    """configs/skeleton.yaml -> layer: its host-side step on the exported USD (sdg_humans/skeleton). The outcome is
+    merged into <id>.json (anatomy, skeleton, landmark joint paths, skeleton_layer)."""
+    from ..skeleton import LayerContext, SkeletonLayer, get_layer
+    layer = get_layer(cfg)
+    info = {"layer": layer.name, "version": layer.version, "rig_replaced": layer.rig_replaced}
+    if type(layer).apply is SkeletonLayer.apply:        # nothing to do on the host (procedural, none)
+        return info
+    meta_path = human_dir / f"{hid}.json"
+    meta = json.loads(meta_path.read_text())
+    started = time.monotonic()
+    out = layer.apply(LayerContext(hid, human_dir, work_dir, Path(result["usd"]), meta, cfg,
+                                   Path(result["skeleton_body"]) if result.get("skeleton_body") else None))
+    if out.anatomy is not None:
+        meta["anatomy"] = out.anatomy
+    if out.skeleton:
+        meta["skeleton"] = dict(meta.get("skeleton") or {}, **out.skeleton)
+    for lm in (meta.get("landmarks") or {}).values():   # None = the joint is no longer in the rig (data only)
+        if isinstance(lm, dict) and lm.get("usd_joint") in out.joint_paths:
+            lm["usd_joint"] = out.joint_paths[lm["usd_joint"]]
+    meta["skeleton_layer"] = info | out.info
+    meta.setdefault("versions", {})["skeleton_layer"] = f"{layer.name}-{layer.version}"
+    meta["warnings"] = list(meta.get("warnings") or []) + out.warnings
+    meta_path.write_text(json.dumps(meta, indent=2))
+    if out.warnings:
+        result["status"] = "warn"
+        result.setdefault("warnings", []).extend(out.warnings)
+    info.update(seconds=round(time.monotonic() - started, 1), **{k: v for k, v in out.info.items()
+                                                                 if k in ("reference", "dropped_weight")})
+    if meta.get("anatomy", {}).get("fit"):
+        info["fit"] = {k: meta["anatomy"]["fit"][k] for k in ("landmark_residual_mm", "bone_exposed_frac_approx")}
+    _LOG.info(f"{hid}: [skeleton] {layer.name} layer done in {info['seconds']}s {info.get('fit', '')}")
     return info
 
 

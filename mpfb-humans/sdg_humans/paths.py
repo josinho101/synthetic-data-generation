@@ -8,4 +8,5 @@ ASSETS_DIR = PROJECT_ROOT / "assets"
 CENTRAL_LOG_DIR = PROJECT_ROOT / "logs"
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 
-CONFIG_FILES = ("population", "appearance", "clothing", "garment_catalog", "gown", "landmarks", "anatomy", "export", "logging")
+CONFIG_FILES = ("population", "appearance", "clothing", "garment_catalog", "gown", "landmarks", "anatomy", "skeleton",
+                "export", "logging")

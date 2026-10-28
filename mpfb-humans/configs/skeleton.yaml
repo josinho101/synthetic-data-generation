@@ -1,0 +1,38 @@
+# -----------------------------------------------------------------------------
+# Skeletal layer: which skeleton goes into the human. Kept separate from the body /
+# clothing build so it can be swapped (sdg_humans/skeleton, docs/14_skeleton_layer.md).
+#   zanatomy    Z-Anatomy bone meshes (CC BY-SA 4.0) fitted INTO the finished body. The rig
+#               becomes the anatomical rig (SkelOrigin/pelvis/..., femur_L, vertebra_T6, ...);
+#               body, skin, clothes and hair are not changed. MPFB-name animation /
+#               retargeting (export.animation, ../sdg retarget_mpfb.yaml) does not apply.
+#   procedural  bone meshes generated in Blender from the MPFB rig (configs/anatomy.yaml)
+#   none        no bone meshes, MPFB rig
+# -----------------------------------------------------------------------------
+layer: zanatomy
+
+zanatomy:
+  reference_dir: assets/zanatomy      # built once by scripts/build_zanatomy_reference.py
+  iters: 300                          # optimiser iterations (~15 s per human on 2 CPU cores)
+  threads: 0                          # torch threads (0 = torch default)
+  length_bound: 0.25                  # bone length scale within exp(+-0.25) = 0.78..1.28 of the stature scale
+  breadth_bound: 0.40                 # bone breadth / depth scale within 0.67..1.49 (frame size varies more)
+  normal_bmi: 23.5                    # soft-tissue depths are for this BMI; scaled by BMI / normal_bmi (0.7..1.8)
+  thin_tissue_mm: 8.0                 # bony sites with <= this depth (shin, skull, malleoli) scale only by sqrt
+  contain_ramp: [100, 150]            # containment loss fades in over these iterations (after the skeleton is placed)
+  weights:                            # loss weights
+    joint: 1.0                        # joint prior (rig joint from its ring of skin vertices)
+    landmarks: 1.0                    # bony landmark at skin - tissue depth
+    containment: 3.0                  # bones inside the skin
+    symmetry: 50.0
+    smoothness: 20.0                  # neighbouring vertebrae / ribs scale alike
+    rotation: 0.01
+    scale: 0.05
+  lr: {rotation: 0.02, scale: 0.03, translation: 0.003}
+  max_influences: 4                   # skin weights per vertex after the re-weighting
+  keep_landmark_joints: false         # false: the rig is Z-Anatomy only (SkelOrigin + 156 joints); the MPFB
+                                      # LM_ / AN_ landmarks stay in <id>.json as data (usd_joint: null).
+                                      # true: keep them as joints under the anatomical bones
+  bone_purpose: guide                 # UsdGeom purpose of the bone / teeth meshes (guide = not rendered)
+  bone_color_rgb: [0.93, 0.90, 0.82]
+  body_match_tolerance_mm: 1.0        # the saved closed body must match the exported body this closely
+  warn_exposed_frac: 0.03             # warn when more bone samples than this lie outside the skin

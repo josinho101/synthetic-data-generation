@@ -96,7 +96,7 @@ def validate_usd(usd_path, metadata_path=None, landmark_prefix: str = "LM_", max
     expected = {}
     if metadata_path and Path(metadata_path).exists():
         meta = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
-        expected = {info["usd_joint"] for info in meta.get("landmarks", {}).values()}
+        expected = {info["usd_joint"] for info in meta.get("landmarks", {}).values() if info.get("usd_joint")}
         missing = sorted(expected - set(joints))
         if missing:
             errors.append(f"{len(missing)} landmark joints from metadata missing in USD, e.g. {missing[:3]}")

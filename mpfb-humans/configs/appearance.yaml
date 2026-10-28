@@ -106,8 +106,8 @@ eyes:
 # scripts/install_asset_packs.py). Names are matched as substrings against installed MPFB
 # assets; "none" = no hair asset (bald). Hair and eyebrows are tinted with hair.rgb.
 hair:
-  male:   {styles: {short01: 25, short02: 25, short03: 15, short04: 20, afro01: 5, none: 10}}
-  female: {styles: {long01: 20, bob01: 20, bob02: 15, ponytail01: 20, braid01: 15, afro01: 10}}
+  male:   {styles: {short01: 25, short02: 25, short04: 20, afro01: 5}}
+  female: {styles: {long01: 20, ponytail01: 20, braid01: 15, afro01: 10}}
   colors: {black: 40, darkbrown: 25, brown: 15, blonde: 8, grey: 12}
   rgb:
     black: "#1c1714"

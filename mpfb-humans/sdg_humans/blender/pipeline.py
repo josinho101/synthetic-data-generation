@@ -2,7 +2,11 @@
 
 Steps (each logged with its duration):
   body -> face -> fit -> skin -> bake -> rig -> body parts -> clothing
-       -> landmarks -> measure -> preview -> USD export -> metadata
+       -> landmarks -> measure -> [anatomy | skeleton body dump] -> preview -> USD export -> metadata
+
+The skeletal layer (configs/skeleton.yaml, sdg_humans/skeleton) decides the bone step: 'procedural' builds the bone
+meshes here; a host-side layer such as 'zanatomy' only gets the closed body saved for it and does its work on the
+exported USD afterwards.
 """
 
 import logging
@@ -13,7 +17,8 @@ from pathlib import Path
 import bpy
 
 from ..metadata.writer import build_metadata, write_metadata
-from . import assets, bake, body, bootstrap, fit, landmarks, measure, preview, rig, skin, usd_export
+from ..skeleton import get_layer
+from . import assets, bake, body, bootstrap, fit, landmarks, measure, preview, rig, skeleton_dump, skin, usd_export
 from .anatomy import build as anatomy
 
 _LOG = logging.getLogger("sdg_humans.blender.pipeline")
@@ -78,8 +83,11 @@ def run(args: dict) -> dict:
         lm_result = landmarks.add_landmark_bones(armature, points, cfg["landmarks"])
     with step("measure", timings):
         measurements = measure.measure(basemesh, lm_result, cfg["landmarks"])
-    bones = []
-    if cfg["anatomy"].get("enabled", True):
+    bones, layer, dump = [], get_layer(cfg), None
+    if layer.needs_body_dump:
+        with step("skeleton_dump", timings):
+            dump = skeleton_dump.dump_body(basemesh, Path(args["work_dir"]) / "skeleton_body.npz", fit_result, spec)
+    if layer.builds_in_blender and cfg["anatomy"].get("enabled", True):
         with step("anatomy", timings):
             bones = anatomy.build_skeleton(basemesh, armature, lm_result, cfg["landmarks"]["spine"]["levels"],
                                            fit_result["height_cm"] / 100.0, cfg["anatomy"], hid)
@@ -123,4 +131,4 @@ def run(args: dict) -> dict:
     return {"status": status, "id": hid, "height_cm": fit_result["height_cm"], "weight_kg": fit_result["weight_kg"],
             "bmi": fit_result["bmi"], "fit_ok": fit_result["fit_ok"], "warnings": report["warnings"],
             "notes": report["notes"],
-            "timings": timings, "usd": str(usd_path)}
+            "timings": timings, "usd": str(usd_path), "skeleton_body": dump["path"] if dump else None}

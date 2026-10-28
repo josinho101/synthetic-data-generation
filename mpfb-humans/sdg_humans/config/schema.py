@@ -169,6 +169,29 @@ def _validate_anatomy(errors, anatomy):
             errors.append(f"anatomy.{key}: needs 12 values (ribs 1-12)")
 
 
+def _validate_skeleton(errors, skel):
+    from ..skeleton import LAYERS
+    layer = skel.get("layer", "procedural")
+    if layer not in LAYERS:
+        errors.append(f"skeleton.layer: unknown layer '{layer}' (allowed {sorted(LAYERS)})")
+    za = skel.get("zanatomy") or {}
+    if layer == "zanatomy":
+        if not isinstance(za.get("iters", 300), int) or za.get("iters", 300) < 1:
+            errors.append("skeleton.zanatomy.iters: must be an integer >= 1")
+        for key, hi in (("length_bound", 1.0), ("breadth_bound", 1.0)):
+            v = za.get(key, 0.25)
+            if not isinstance(v, (int, float)) or not 0 < v <= hi:
+                errors.append(f"skeleton.zanatomy.{key}: must be in (0, {hi}]")
+        ramp = za.get("contain_ramp", [100, 150])
+        if not (isinstance(ramp, list) and len(ramp) == 2 and 0 <= ramp[0] <= ramp[1]):
+            errors.append("skeleton.zanatomy.contain_ramp: must be [start, end] iterations with start <= end")
+        for k, v in (za.get("weights") or {}).items():
+            if not isinstance(v, (int, float)) or v < 0:
+                errors.append(f"skeleton.zanatomy.weights.{k}: must be a number >= 0")
+        if za.get("max_influences", 4) not in (1, 2, 3, 4, 5, 6, 7, 8):
+            errors.append("skeleton.zanatomy.max_influences: must be 1..8")
+
+
 def validate(cfg: dict) -> list:
     """Return a list of human-readable errors (empty when the config is valid)."""
     errors = []
@@ -178,6 +201,7 @@ def validate(cfg: dict) -> list:
     _validate_landmarks(errors, cfg.get("landmarks") or {})
     _validate_export(errors, cfg.get("export") or {})
     _validate_anatomy(errors, cfg.get("anatomy") or {})
+    _validate_skeleton(errors, cfg.get("skeleton") or {})
     if not isinstance((cfg.get("logging") or {}).get("dict_config"), dict):
         errors.append("logging.dict_config: required (logging.config.dictConfig mapping)")
     return errors
