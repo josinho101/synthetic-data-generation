@@ -12,8 +12,9 @@ Every human:
 - has a **skeleton from a swappable skeletal layer** (`configs/skeleton.yaml`,
   [docs/14_skeleton_layer.md](docs/14_skeleton_layer.md)). Default **`zanatomy`**: the real **Z-Anatomy** bone meshes
   (156 bones, CC BY-SA 4.0) fitted *into* the finished body, and the rig is the **anatomical rig**
-  (`SkelOrigin/pelvis/…`, `femur_L`, `vertebra_T6`, …; Z-Anatomy joints only). Body, skin, clothes and hair are
-  untouched. Alternatives: `procedural` (schematic ~80 bone meshes on the MPFB rig, [docs/11](docs/11_anatomy.md))
+  (`SkelOrigin/pelvis/…`, `femur_L`, `vertebra_T6`, …; Z-Anatomy joints only; the radius sits under the ulna so one
+  forearm joint bends both, `rig_parent_overrides`). Body, skin, clothes and hair are untouched. `../sdg` animates it
+  with its `retarget_zanatomy.yaml` map. Alternatives: `procedural` (schematic ~80 bone meshes on the MPFB rig, [docs/11](docs/11_anatomy.md))
   or `none`;
 - has **211 landmarks** (175 `LM_` points: C1–C7, T1–T12, L1–L5, S1–S5 vertebral-body and skin-surface points; head,
   sternum, scapulae, pelvis, elbow, wrist, knee and ankle landmarks, joint centres, rib ends; plus 36 `AN_` ISB-style

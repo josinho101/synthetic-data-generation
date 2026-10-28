@@ -28,6 +28,9 @@ def test_skeleton_config_validation(cfg):
     c["skeleton"]["layer"] = "bogus"
     assert any("skeleton.layer" in e for e in validate(c))
     c = copy.deepcopy(cfg)
+    c["skeleton"]["zanatomy"]["rig_parent_overrides"] = {"radius_L": "radius_L"}
+    assert any("rig_parent_overrides" in e for e in validate(c))
+    c = copy.deepcopy(cfg)
     c["skeleton"]["zanatomy"]["length_bound"] = 2.0
     c["skeleton"]["zanatomy"]["contain_ramp"] = [150, 100]
     errs = validate(c)
@@ -153,3 +156,40 @@ def test_usd_rig_keeps_landmark_joints_when_asked(tmp_path):
     joints = [str(j) for j in skel.GetJointsAttr().Get()]
     bind = np.array(skel.GetBindTransformsAttr().Get()[joints.index(new)]).T
     assert np.allclose(bind[:3, 3], [0.3, 0, 1.1])                    # world bind unchanged
+
+
+def test_usd_rig_parent_override(tmp_path):
+    """radius under ulna (not both under the humerus): one animated forearm joint bends both bones."""
+    pytest.importorskip("pxr")
+    from pxr import Usd, UsdSkel
+
+    from sdg_humans.skeleton.zanatomy.usd_rig import rewrite, rig_parents
+    ref = _Ref()
+    ref.names = ref.names + ["radius_L", "carpus_L"]
+    ref.parent = np.array([-1, 0, 0, 2, 2, 4])                          # ulna and radius both under the humerus
+    f = np.repeat(np.eye(4)[None], 6, 0)
+    f[:4] = ref.frames
+    f[4, :3, 3], f[5, :3, 3] = [0.3, 0, 1.1], [0.4, 0, 0.9]
+    ref.frames = f
+    path = tmp_path / "H.usda"
+    _stage(path)
+    rewrite(path, ref, {"W": f.copy(), "S": np.ones((6, 3))}, {"rig_parent_overrides": {"radius_L": "ulna_L"}})
+    stage = Usd.Stage.Open(str(path))
+    skel = UsdSkel.Skeleton(stage.GetPrimAtPath("/H/H_rig/H_rig"))
+    joints = [str(j) for j in skel.GetJointsAttr().Get()]
+    assert "SkelOrigin/pelvis/humerus_L/ulna_L/radius_L/carpus_L" in joints
+    topology = UsdSkel.Topology(joints)
+    assert topology.Validate()[0]
+    rest = [np.array(m).T for m in skel.GetRestTransformsAttr().Get()]
+    parents = list(topology.GetParentIndices())
+    for i, j in enumerate(joints):                                      # rest composes back to the world binds
+        w = rest[i]
+        p = parents[i]
+        while p >= 0:
+            w = rest[p] @ w
+            p = parents[p]
+        assert np.allclose(w, np.array(skel.GetBindTransformsAttr().Get()[i]).T)
+    with pytest.raises(ValueError):
+        rig_parents(ref.names, ref.parent, {"ulna_L": "radius_L"})       # parent after child in the joint order
+    with pytest.raises(ValueError):
+        rig_parents(ref.names, ref.parent, {"radius_L": "nope"})

@@ -190,6 +190,10 @@ def _validate_skeleton(errors, skel):
                 errors.append(f"skeleton.zanatomy.weights.{k}: must be a number >= 0")
         if za.get("max_influences", 4) not in (1, 2, 3, 4, 5, 6, 7, 8):
             errors.append("skeleton.zanatomy.max_influences: must be 1..8")
+        overrides = za.get("rig_parent_overrides") or {}
+        if not isinstance(overrides, dict) or not all(isinstance(k, str) and isinstance(v, str) and k != v
+                                                      for k, v in overrides.items()):
+            errors.append("skeleton.zanatomy.rig_parent_overrides: must map bone -> a different parent bone")
 
 
 def validate(cfg: dict) -> list:

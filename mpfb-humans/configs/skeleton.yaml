@@ -3,8 +3,8 @@
 # clothing build so it can be swapped (sdg_humans/skeleton, docs/14_skeleton_layer.md).
 #   zanatomy    Z-Anatomy bone meshes (CC BY-SA 4.0) fitted INTO the finished body. The rig
 #               becomes the anatomical rig (SkelOrigin/pelvis/..., femur_L, vertebra_T6, ...);
-#               body, skin, clothes and hair are not changed. MPFB-name animation /
-#               retargeting (export.animation, ../sdg retarget_mpfb.yaml) does not apply.
+#               body, skin, clothes and hair are not changed. ../sdg retargets it with
+#               retarget_zanatomy.yaml; MPFB-name animation (export.animation) does not apply.
 #   procedural  bone meshes generated in Blender from the MPFB rig (configs/anatomy.yaml)
 #   none        no bone meshes, MPFB rig
 # -----------------------------------------------------------------------------
@@ -32,6 +32,9 @@ zanatomy:
   keep_landmark_joints: false         # false: the rig is Z-Anatomy only (SkelOrigin + 156 joints); the MPFB
                                       # LM_ / AN_ landmarks stay in <id>.json as data (usd_joint: null).
                                       # true: keep them as joints under the anatomical bones
+  rig_parent_overrides:               # USD rig parents changed from the reference (the fit is not affected).
+    radius_L: ulna_L                  # humerus -> ulna (elbow) -> radius -> carpus: one animated forearm joint
+    radius_R: ulna_R                  # bends both bones (siblings under the humerus tear the forearm skin)
   bone_purpose: guide                 # UsdGeom purpose of the bone / teeth meshes (guide = not rendered)
   bone_color_rgb: [0.93, 0.90, 0.82]
   body_match_tolerance_mm: 1.0        # the saved closed body must match the exported body this closely

@@ -1,7 +1,8 @@
 """Rewrite an exported human USD in place so the fitted Z-Anatomy skeleton is its rig (usd-core only).
 
   * Skeleton joints -> SkelOrigin + the Z-Anatomy anatomical bones only (fitted rigid frames as bind / rest
-    transforms). The MPFB rig and its LM_ / AN_ landmark joints are dropped (keep_landmark_joints: true re-parents
+    transforms; `rig_parent_overrides` re-parents bones, e.g. radius under ulna). The MPFB rig and its LM_ / AN_
+    landmark joints are dropped (keep_landmark_joints: true re-parents
     the landmark joints to an anatomical bone instead, world bind unchanged)
   * every skinned mesh (body, clothes, hair, eyes, ...) re-weighted MakeHuman -> anatomical (weights.py).
     Points, topology, UVs and materials are not touched.
@@ -30,6 +31,24 @@ def _np(m) -> np.ndarray:
     return np.array(m, dtype=np.float64).T
 
 
+def rig_parents(names, parent, overrides: dict) -> np.ndarray:
+    """Parent indices of the USD rig: the reference parents with `overrides` {bone: new parent bone} applied.
+
+    The default override puts radius under ulna (humerus -> ulna -> radius -> carpus): with both forearm bones under
+    the humerus, one animated forearm joint cannot bend both, and the skin of the other tears at the elbow. A parent
+    must come before its child in the joint order (UsdSkel topology)."""
+    parent = np.array(parent, dtype=int)
+    index = {n: i for i, n in enumerate(names)}
+    for child, new_parent in overrides.items():
+        if child not in index or new_parent not in index:
+            raise ValueError(f"skeleton.zanatomy.rig_parent_overrides: unknown bone {child!r} -> {new_parent!r}")
+        if index[new_parent] >= index[child]:
+            raise ValueError(f"skeleton.zanatomy.rig_parent_overrides: {new_parent} must come before {child} in the "
+                             f"reference joint order")
+        parent[index[child]] = index[new_parent]
+    return parent
+
+
 def rewrite(usd_path, ref, fit: dict, layer_cfg: dict, landmark_prefixes=("LM_", "AN_")) -> dict:
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, UsdSkel, Vt
 
@@ -45,7 +64,8 @@ def rewrite(usd_path, ref, fit: dict, layer_cfg: dict, landmark_prefixes=("LM_",
     old_leaf = [j.split("/")[-1] for j in old_joints]
     poly = spine_polyline(W, names, maps)
 
-    # anatomical joints
+    # anatomical joints (rig_parent_overrides re-parents joints in the USD rig only; the fit is not affected)
+    parent = rig_parents(names, parent, layer_cfg.get("rig_parent_overrides") or {})
     paths = {}
     for i, n in enumerate(names):
         paths[n] = (paths[names[parent[i]]] + "/" if parent[i] >= 0 else "SkelOrigin/") + n

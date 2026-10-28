@@ -18,7 +18,7 @@ sdg_humans/skeleton/
 
 | Layer | Bones | Rig in the USD | Where it runs |
 |---|---|---|---|
-| `zanatomy` (default) | 158 Z-Anatomy meshes (156 bones + teeth), `bone_*` / `teeth_*`, purpose `guide` | **anatomical**: `SkelOrigin` + 156 Z-Anatomy joints only | host, after `usd_post`, before validation |
+| `zanatomy` (default) | 158 Z-Anatomy meshes (156 bones + teeth), `bone_*` / `teeth_*`, purpose `guide` | **anatomical**: `SkelOrigin` + 156 Z-Anatomy joints only (radius under ulna, see below) | host, after `usd_post`, before validation |
 | `procedural` | ~80 schematic meshes (docs/11) | MPFB default rig + `LM_*` / `AN_*` landmark joints | Blender build |
 | `none` | – | MPFB default rig + landmark joints | – |
 
@@ -81,10 +81,17 @@ samples outside the skin (a warning above `warn_exposed_frac`, 3 %). The bones a
 See the spike report.
 
 ### Consequences of the anatomical rig
-- `../sdg` retargeting (`configs/retarget_mpfb.yaml`), `scripts/pose_exams.py`, `isaac/motion.py` and
-  `export.animation` drive **MPFB joint names**, so they do not apply to `zanatomy` humans. A retarget map for the
-  anatomical names belongs to the animation scope. Use `layer: procedural` or `none` when MPFB-rig animation is
-  needed.
+- `../sdg` retargets `zanatomy` humans with its own map, `../sdg/configs/retarget_zanatomy.yaml`, chosen by
+  `<id>.json → skeleton.rig = zanatomy_anatomical`. sdg also writes per-frame vertebra, hip and shoulder heights from
+  this rig. `scripts/pose_exams.py`, `isaac/motion.py` and `export.animation` in this pipeline still drive **MPFB
+  joint names**, so they do not apply to `zanatomy` humans. Use `layer: procedural` or `none` when those are needed.
+- **Forearm chain (`rig_parent_overrides`).** In the reference skeleton, ulna and radius are both children of the
+  humerus. The skin weights map `lowerarm01 → ulna` and `lowerarm02 → radius`, so an animation that drives one
+  forearm joint would leave the other bone and its skin at rest (the forearm tears at the elbow). The USD rig
+  therefore puts the radius under the ulna: humerus → ulna (elbow) → radius → carpus. This is the same behaviour as
+  MPFB's `lowerarm01` / `lowerarm02`. Only the joint hierarchy and the rest transforms change; the world binds, the
+  fit and the skin weights are unchanged. Humans built before this have the old hierarchy; sdg rejects them with
+  "rebuild the humans".
 - With `keep_landmark_joints: true`, the `LM_*` / `AN_*` joints are kept, re-parented under the anatomical bones (world
   position unchanged). The default is a Z-Anatomy-only rig.
 
