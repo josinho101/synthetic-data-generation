@@ -10,7 +10,7 @@ This chapter follows one human from configuration to USD.
  clothing.yaml ───┘    ① exact quotas: sex → ethnicity → age band → somatotype → clothing
                        ② per-human seed = sha256(seed:index:attempt)
                        ③ free attributes: age, height, macros, race mix, skin tone,
-                          face targets, eyes, hair, gown colour
+                          face targets, eyes, hair, brows, lashes, gown colour
                        ④ uniqueness check (redraw ③ if too similar to an earlier human)
                        ⑤ manifest.json entry
                               │
@@ -27,17 +27,23 @@ This chapter follows one human from configuration to USD.
                                    material replaced by Principled + image
    rig          rig.py             add_builtin_rig("default") – 163 bones + weights         armature
    body_parts   assets.py/eyes.py  eye meshes (generated or pack), brows/lashes/hair (packs) meshes
-   clothing     assets.py,         add_mhclo_asset(gown / MPFB clothes) → fitted & rigged;  meshes
-                gown_style.py      gown tint, smoothing, inflation, thickness
-   landmarks    landmarks.py       anchors + spine profile → 84 LM_* bones (non-deforming)  joints
+   clothing     assets.py,         add_mhclo_asset(catalogue / MPFB / fixed garments) →     meshes
+                garment_fit.py,    fitted & rigged; recolour, poke-through fix, layering;
+                gown_style.py      gown / skirt tint, smoothing, inflation, thickness
+   floor        rig.py             lift the human so the shoe soles touch z = 0             lift (cm)
+   landmarks    landmarks.py       anchors + spine profile + derived joints + spine shape   joints
+                                   → 175 LM_* + 36 AN_* bones (non-deforming)
    measure      measure.py         landmark heights, widths, depths                         dict
-   anatomy      anatomy/*.py       ~80 bone meshes from joints + landmarks, skinned (doc 11) meshes
+   skeleton_dump skeleton_dump.py  zanatomy layer: closed body → work/<id>/skeleton_body.npz NPZ
+    or anatomy  anatomy/*.py       procedural layer: ~80 bone meshes, skinned (doc 11)      meshes
+   finalize     usd_export.py      bake shape keys, drop helpers, hide body under shoes     basemesh
    preview      preview.py         EEVEE front + side PNG (+ landmark overlay, skeleton)    PNGs
-   usd_export   usd_export.py      bake shape keys, drop helpers, clean weights, export     USD
+   usd_export   usd_export.py      clean weights (≤ 4), export                              USD
    metadata     metadata/writer.py spec + measurements + landmarks + versions               JSON
                               │
                               ▼
-                  STAGE 3: VALIDATE (usd-core)  →  STAGE 4: REPORT
+                  HOST: USD POST (clothing holes, SkelOrigin) → SKELETAL LAYER (zanatomy: fit,
+                  rig swap, re-skin; doc 14) → VALIDATE (usd-core) → REPORT
 ```
 
 ## 5.2 Exact quotas (largest remainder + interleaving)
@@ -179,10 +185,13 @@ while the Monk colour stays in the metadata as the reference.
   each mesh is bound 100 % to bone `eye.L` / `eye.R`.
 * **Packs:** eyes, eyebrows, eyelashes and hair are loaded with `HumanService.add_mhclo_asset` and
   their materials normalised to Principled + diffuse image.
-* **Clothing** (`assets.py`): every slot of the human's variant is resolved (fixed asset or
-  `mpfb_slot` keyword pick, reproducible per human) and loaded with `add_mhclo_asset`, which fits
-  it to the body and transfers rig weights. If nothing could be loaded, `fallback_variant` is used.
-  With `clothing.enabled: false` every human gets the variant `none` and this step adds nothing.
-* **Gown styling** (`gown_style.py`): patterned fabric texture (stripes / solid), Smooth modifier weighted to zero at
+* **Clothing** (`assets.py`): every slot of the human's variant is resolved (catalogue `garment` ID,
+  fixed `asset`, or `mpfb_slot` keyword pick; per sex and `one_of`, reproducible per human) and loaded
+  with `add_mhclo_asset`, which fits it to the body and transfers rig weights. Garments are then
+  recoloured (`recolor`, sock colours), pushed out where the skin would poke through
+  (`poke_through_*`, `garment_fit.py`) and layered (`layer_offset_cm`). If nothing could be loaded,
+  `fallback_variant` is used. With `clothing.enabled: false` every human gets the variant `none` and
+  this step adds nothing.
+* **Gown / skirt styling** (`gown_style.py`, generated garments only): patterned fabric texture (stripes / solid), Smooth modifier weighted to zero at
   the cut edges, Displace (inflate) and Solidify (thickness). These are applied in the rest pose
   before export.

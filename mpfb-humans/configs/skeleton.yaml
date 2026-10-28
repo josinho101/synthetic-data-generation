@@ -12,7 +12,7 @@ layer: zanatomy
 
 zanatomy:
   reference_dir: assets/zanatomy      # built once by scripts/build_zanatomy_reference.py
-  iters: 300                          # optimiser iterations (~15 s per human on 2 CPU cores)
+  iters: 300                          # optimiser iterations (~10-15 s per human on 2 CPU cores)
   threads: 0                          # torch threads (0 = torch default)
   length_bound: 0.25                  # bone length scale within exp(+-0.25) = 0.78..1.28 of the stature scale
   breadth_bound: 0.40                 # bone breadth / depth scale within 0.67..1.49 (frame size varies more)

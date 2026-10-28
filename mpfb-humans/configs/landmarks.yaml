@@ -1,6 +1,7 @@
 # -----------------------------------------------------------------------------
-# Anatomical landmarks. Every landmark becomes a non-deforming skeleton joint
-# "<bone_prefix><name>" in the exported USD, so it follows any animation.
+# Anatomical landmarks, written to <id>.json. With the procedural / none skeletal layers every landmark
+# is also a non-deforming skeleton joint "<bone_prefix><name>" in the exported USD, so it follows any
+# animation; with zanatomy (configs/skeleton.yaml) they are data only (docs/06_landmarks.md).
 #
 # anchors: basemesh vertex IDs. All MPFB humans share one topology, so a vertex
 #          ID marks the same anatomical point on every human. Fill them with

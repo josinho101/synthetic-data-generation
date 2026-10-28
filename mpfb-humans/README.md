@@ -15,18 +15,20 @@ Every human:
   (`SkelOrigin/pelvis/…`, `femur_L`, `vertebra_T6`, …; Z-Anatomy joints only). Body, skin, clothes and hair are
   untouched. Alternatives: `procedural` (schematic ~80 bone meshes on the MPFB rig, [docs/11](docs/11_anatomy.md))
   or `none`;
-- has **landmarks** (C1–C7, T1–T12, L1–L5, S1–S5 vertebral-body and skin-surface points; head, sternum, scapulae,
-  pelvis, elbow, wrist, knee and ankle landmarks; ISB-style frames, see [docs/06_landmarks.md](docs/06_landmarks.md))
-  in `<id>.json`. With the `procedural` / `none` layers they are also joints of the MPFB rig (`LM_*`, `AN_*`) and
+- has **211 landmarks** (175 `LM_` points: C1–C7, T1–T12, L1–L5, S1–S5 vertebral-body and skin-surface points; head,
+  sternum, scapulae, pelvis, elbow, wrist, knee and ankle landmarks, joint centres, rib ends; plus 36 `AN_` ISB-style
+  frames, see [docs/06_landmarks.md](docs/06_landmarks.md)) in `<id>.json`. With the `procedural` / `none` layers they are also joints of the MPFB rig (`LM_*`, `AN_*`) and
   follow animation; with `zanatomy` they are data only, and the bony landmarks come from the fitted skeleton;
 - has **hair, eyebrows and eyelashes** (MakeHuman system assets, tinted per human);
-- wears a **hospital gown** (striped or solid, natural shoulders, short trimmed sleeves, knee length,
-  open back with ties) or a **shirt / t-shirt with jeans** (women also a knee-length office skirt),
-  in random colours, with **footwear by sex**;
+- wears **street clothes** from the MakeHuman asset packs: a full outfit (casual or elegant suit) or a top with
+  jeans (men: recoloured polo; women: sweater), with **footwear by sex** (`configs/clothing.yaml`). The generator
+  for a **hospital gown** (striped or solid, knee length, open back with ties) and a knee-length office skirt is
+  still included (`configs/gown.yaml`), but the shipped variants do not use them;
 - can be posed into the **X-ray exam poses** with coupled spine / scapula / rib motion and a range-of-motion
   check: `scripts/pose_exams.py` (see [docs/06_landmarks.md](docs/06_landmarks.md#68-derived-joints-spinal-shape-and-exam-posing-2026-10-26));
 - can come with an **animated Isaac Sim scene** `<id>_anim.usda` (idle → walk → idle → jump → walk
-  back → idle; `export.animation.enabled`, off by default), see [isaac/README.md](isaac/README.md);
+  back → idle; `export.animation.enabled`, off by default), see [isaac/README.md](isaac/README.md).
+  Exam posing and this animation drive MPFB joint names, so they need `layer: procedural` or `none`;
 - is written to its own folder: `USD + metadata JSON + preview PNGs + textures`.
 
 ## Setup on a new machine (one time, ~15 min)
@@ -64,6 +66,10 @@ python3 -m venv .venv
 .venv/bin/python scripts/build_zanatomy_reference.py   # one time: Z-Anatomy reference package -> assets/zanatomy
 ```
 
+`build_zanatomy_reference.py` packs the outputs of the Z-Anatomy spike (`output/zanatomy-humans/spike`). If they are
+missing it reruns the spike, which needs Blender + MPFB and the Anny venv (see [docs/14](docs/14_skeleton_layer.md#setup)).
+Only the default `zanatomy` skeletal layer needs torch, scipy and this package.
+
 **4. Edit `configs/export.yaml`** for this machine:
 
 ```yaml
@@ -85,8 +91,10 @@ workers: 1                              # parallel Blender processes (~1.5 GB RA
   `files2.makehumancommunity.org` and installs them into MPFB's user data folder
   (`~/.config/blender/<version>/extensions/.user/blender_org/mpfb/data/`). Packs that are already
   installed are skipped, and the zips stay in `~/.cache/sdg_asset_packs/` for a reinstall;
-* generates the **hospital gown** assets if `assets/custom/hospital_gown/` is missing;
-* checks Python, packages, Blender, MPFB, assets, GPU, landmark anchors and the output folder.
+* generates the **hospital gown** assets if a clothing variant uses them as a fixed `asset:` and they are
+  missing (the shipped variants do not);
+* checks Python, packages, Blender, MPFB, assets, GPU, landmark anchors, the skeletal layer (torch, scipy,
+  Z-Anatomy reference package) and the output folder.
 
 It must end with `[preflight] PASSED` and the line
 `OK   asset packs cfg   7/7 configured packs installed`. Any `FAIL` line says what to fix
@@ -105,8 +113,9 @@ It must end with `[preflight] PASSED` and the line
   `check_env.py --install-packs`, `run_pipeline.py --install-packs`, or
   `install_missing_packs: true` in `configs/export.yaml` (then every run installs whatever is
   missing). Without that, a run on a machine without packs **still works** but prints
-  `WARN asset packs …`: every human then wears a hospital gown, with no hair, eyebrows,
-  eyelashes or shoes. Set `asset_mode: required` to make that an error instead.
+  `WARN asset packs …`: humans then have no hair, eyebrows, eyelashes, shoes or clothes (the shipped
+  variants and `fallback_variant` all use pack garments, so everyone is unclothed). Set
+  `asset_mode: required` to make that an error instead.
 * **One step:** `run_pipeline.py --install-packs --count 1` installs the packs and builds a human.
 * **No internet on the target machine:** download the zips elsewhere (URLs:
   `<asset_packs_url>/<name>/<file>` from `export.yaml`, e.g.
@@ -144,7 +153,8 @@ run-20261018-153012/
 ├── humans/H0001/{H0001.usd, H0001.json, H0001.png, textures/}   (+ _anim.usda / _landmarks.png / _skeleton.png when enabled)
 ├── manifest.json  population.csv  summary.json  contact_sheet.png  results.json
 ├── config_snapshot/  resolved_config.json  preflight.json
-└── logs/{pipeline.log, errors.log, humans/H0001.log}
+├── work/H0001/        worker args/result, skeleton_body.npz (zanatomy layer)
+└── logs/{pipeline.log, errors.log, humans/H0001.log, humans/H0001.blender.log}
 ```
 
 ## Configure
@@ -153,12 +163,14 @@ run-20261018-153012/
 |---|---|
 | `configs/population.yaml` | count, seed, sex %, age bands %, ethnicity %, somatotype %, height distributions, uniqueness |
 | `configs/appearance.yaml` | ethnicity → race mix + skin tones, skin source, face detail ranges, eyes, hair |
-| `configs/clothing.yaml` | clothing variants % (hospital gowns, MPFB clothes slots), gown colours and shaping |
+| `configs/clothing.yaml` | clothing variants % (catalogue garments, MPFB clothes slots, fixed assets), colour palettes, shoes, gown colours and shaping |
+| `configs/garment_catalog.yaml` | garment IDs (`U07`, `L03`, `F01`, `S01`, …) → installed asset, sex, quality rating |
 | `configs/gown.yaml` | hospital gown generator (length, sleeves, looseness, neckline, back opening) |
-| `configs/landmarks.yaml` | anchor vertices, vertebra distribution, parent bones, reported heights |
+| `configs/landmarks.yaml` | anchor vertices, vertebra distribution, parent bones, anatomical frames, spinal shape, reported heights |
 | `configs/skeleton.yaml` | skeletal layer: `zanatomy` (Z-Anatomy, anatomical rig) / `procedural` / `none`, fit settings |
 | `configs/anatomy.yaml` | `procedural` layer only: schematic bone meshes, parts, colour, rib shape, soft tissue |
-| `configs/export.yaml` | output root, Blender path, workers, USD / preview / bake options |
+| `configs/export.yaml` | output root, Blender path, asset packs, workers, USD / USD post / preview / animation / bake options |
+| `configs/poses.yaml` | exam posing (`pose_exams.py`): MPFB joint roles, optional range-of-motion overrides |
 | `configs/logging.yaml` | log levels, files, rotation |
 
 ## Documentation

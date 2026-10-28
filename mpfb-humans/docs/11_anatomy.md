@@ -1,6 +1,10 @@
-# 11. Anatomical skeleton (bone meshes)
+# 11. Anatomical skeleton (bone meshes): `procedural` layer
 
-Each human gets a **schematic anatomical skeleton**: about 80 bone meshes inside the body,
+> This page describes the **`procedural`** skeletal layer (`configs/skeleton.yaml → layer: procedural`).
+> The default layer is **`zanatomy`** (real Z-Anatomy bone meshes fitted into the body, anatomical rig),
+> described in [14](14_skeleton_layer.md). `anatomy.yaml` is only read by the `procedural` layer.
+
+With this layer each human gets a **schematic anatomical skeleton**: about 80 bone meshes inside the body,
 generated per human from that human's rig joints, spine landmarks and body surface. Each bone
 mesh is skinned to its rig bone, so the skeleton moves with the body in Isaac Sim (walking,
 positioning) and can be rendered, segmented or used for X-ray-like simulation.
@@ -61,7 +65,7 @@ Rules (sizes scale with stature / 170 cm):
 
 | Key | Default | Meaning |
 |---|---|---|
-| `enabled` | true | build the skeleton at all |
+| `enabled` | true | build the skeleton at all (with `layer: procedural`) |
 | `parts` | all 8 groups | groups to build (`skull, vertebrae, ribs, sternum, shoulder_girdle, pelvis, limbs, hands_feet`) |
 | `color_rgb` | `#e3d8c3` | bone material colour (UsdPreviewSurface) |
 | `soft_tissue_cm`, `soft_tissue_fraction` | 1.2, 0.08 | depth of ribs / sternum / scapulae below the skin |

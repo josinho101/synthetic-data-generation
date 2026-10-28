@@ -55,9 +55,11 @@ build issues without resampling. To change the population itself, start a new ru
 |---|---|---|---|
 | preflight | system Python + 1 Blender probe | environment checks (02_setup §2.8), gown auto-generation | `preflight.json` |
 | sample | system Python | exact quotas → per-human specs → uniqueness | `manifest.json` |
-| build | 1 Blender process / human | 13 build steps (05) | `humans/<id>/…` |
+| build | 1 Blender process / human | 16 build steps (05 §5.1) | `humans/<id>/…` |
+| USD post | system Python (usd-core) | clothing holes, `SkelOrigin` root joint (07 §7.2a) | `<id>.json → usd_post` |
+| skeletal layer | system Python (usd-core, torch) | `zanatomy`: fit the bones, swap the rig, re-skin (14) | `<id>.usd`, `<id>.json → anatomy`, `skeleton_layer` |
 | validate | system Python (usd-core) | Isaac-Sim compatibility checks (07) | `results.json` (`validation`) |
-| animate | system Python (usd-core) | procedural UsdSkelAnimation + root motion (`export.animation`, off by default) | `<id>_anim.usda` |
+| animate | system Python (usd-core) | procedural UsdSkelAnimation + root motion (`export.animation`, off by default; skipped with a warning for `zanatomy` humans) | `<id>_anim.usda` |
 | report | system Python | CSV, summary, contact sheet | `population.csv`, `summary.json`, `contact_sheet.png` |
 
 ## 4.3 Run directory
@@ -78,7 +80,7 @@ build issues without resampling. To change the population itself, start a new ru
 │   └── humans/
 │       ├── H0001.log          worker log (INFO): every step with timing, measurements, asset picks
 │       └── H0001.blender.log  raw Blender / MPFB console output
-├── work/H0001/                worker args/result JSON (debugging)
+├── work/H0001/                worker args/result JSON (debugging), skeleton_body.npz (zanatomy layer input)
 └── humans/
     └── H0001/
         ├── H0001.usd          the human (UsdSkel)
@@ -86,7 +88,7 @@ build issues without resampling. To change the population itself, start a new ru
         ├── H0001.json         metadata (08_metadata_schema.md)
         ├── H0001.png          preview: front + left side
         ├── H0001_landmarks.png preview with landmark dots (QA; only with preview.landmark_overlay)
-        ├── H0001_skeleton.png  anatomical skeleton only (front + side; only with anatomy.preview)
+        ├── H0001_skeleton.png  anatomical skeleton only (front + side; procedural layer with anatomy.preview)
         └── textures/          H0001_skin.png, H0001_gown.png, …
 ```
 
@@ -100,27 +102,37 @@ build issues without resampling. To change the population itself, start a new ru
 
 ## 4.5 Timing (Tesla T4, 2 CPU cores, one worker)
 
+Measured on run-20261028-103110 (default config, `zanatomy` layer):
+
 | Step | Typical |
 |---|---|
-| Blender + MPFB start | 3–5 s |
 | body + face + height fit | 1–2 s |
-| skin bake 2048² (GPU) | 3–4 s |
-| rig, eyes, clothing, landmarks | 1–2 s |
-| anatomical skeleton | < 1 s |
-| previews (EEVEE: body + skeleton, 2 views each) | 70–85 s |
-| USD export + validation | < 2 s |
-| **total per human** | **≈ 85–95 s** → 150 humans ≈ 3.5–4 h (`anatomy.preview` and `preview.landmark_overlay` are off by default; turning them on adds render time) |
+| skin + bake 2048² (GPU) | 7–8 s |
+| rig + body parts (eyes, hair, brows, lashes) | 4–5 s |
+| clothing (fit, poke-through fix, colour bake) | 8–13 s |
+| floor, landmarks, measure, body dump, finalize | < 1 s |
+| preview (EEVEE, front + side) | 22–37 s |
+| USD export | < 1 s |
+| **Blender build** | **45–67 s** |
+| `zanatomy` skeleton fit + USD rewrite | 14–20 s |
+| Blender start, USD post, validation | 5–10 s |
+| **total per human** | **≈ 70–90 s** (wall clock; up to ~2 min for heavy outfits) → 150 humans ≈ 3–4 h |
 
-Turning off the preview (`preview.engines: [BLENDER_WORKBENCH]`, lower `resolution`) saves the most time.
+With the `procedural` layer, the bone meshes are built in Blender and the fit is skipped; `anatomy.preview` and
+`preview.landmark_overlay` (both off by default) add render time. Turning off the preview
+(`preview.engines: [BLENDER_WORKBENCH]`, lower `resolution`) saves the most time.
 
 ## 4.6 Other tools
 
 ```bash
 .venv/bin/python scripts/validate_usd.py output/humans/run-…          # re-validate all USDs of a run
-.venv/bin/python scripts/validate_usd.py output/humans/run-…/humans/H0001/H0001.usd
+.venv/bin/python scripts/validate_usd.py output/humans/run-…/humans/H0001/H0001.usd --json   # full result
 .venv/bin/python scripts/contact_sheet.py output/humans/run-… --columns 10
 .venv/bin/python scripts/make_gown.py [--variant gown_short]
 .venv/bin/python scripts/calibrate_anchors.py --auto [--overwrite] [--dry-run]
 .venv/bin/python scripts/garment_catalog.py [--ids U14 L06] [--category shoes]   # render the garment catalogue
-.venv/bin/python scripts/sample_population.py [--dry-run] [--out manifest.json]
+.venv/bin/python scripts/sample_population.py [--dry-run] [--count N] [--seed N] [--out manifest.json]
+.venv/bin/python scripts/install_asset_packs.py [--list] [--all] [--from-dir DIR]          # 02 §2.4
+.venv/bin/python scripts/pose_exams.py <run>/humans/H0001/H0001.usd [--poses chest_pa spine_ap] [--out FILE]   # MPFB rig only (06 §6.8)
+.venv/bin/python scripts/build_zanatomy_reference.py [--rebuild-spike]                     # 14 §Setup
 ```

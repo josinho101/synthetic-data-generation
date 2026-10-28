@@ -14,8 +14,8 @@ flowchart TB
     subgraph CFGr[" "]
       C1["<b>population.yaml</b><br/>count · seed · sex · age bands<br/>ethnicity · somatotype · height"]
       C2["<b>appearance.yaml</b><br/>race mix · Monk skin tone<br/>face ranges · eyes · hair"]
-      C3["<b>clothing.yaml · gown.yaml</b><br/>garment mix · colours · cut"]
-      C4["<b>landmarks.yaml · anatomy.yaml</b><br/>84 landmarks · bone meshes"]
+      C3["<b>clothing.yaml · garment_catalog.yaml</b><br/>garment mix · colours · shoes"]
+      C4["<b>landmarks.yaml · skeleton.yaml</b><br/>211 landmarks · skeletal layer"]
       C5["<b>export.yaml</b><br/>workers · USD · bake<br/>preview · animation"]
     end
   end
@@ -27,7 +27,7 @@ flowchart TB
       P3["<b>Preflight</b><br/>Blender · MPFB · assets<br/>GPU · disk"]
       P4["<b>Sampling engine</b><br/>exact quotas · samplers<br/>sha256 seed · uniqueness"]
       P5["<b>Orchestrator</b><br/>thread pool · timeouts<br/>retries · resume"]
-      P6["<b>Post-processing</b><br/>USD validator · animation<br/>reports"]
+      P6["<b>Post-processing</b><br/>USD post · Z-Anatomy layer<br/>validator · reports"]
     end
   end
 
@@ -41,8 +41,8 @@ flowchart TB
     subgraph BP["Build modules inside every worker · bpy + MPFB only"]
       M1["<b>Body · face</b><br/>height fit · BMI"]
       M2["<b>Skin · bake</b><br/>eyes · hair"]
-      M3["<b>Rig · clothing</b><br/>gown builder"]
-      M4["<b>Annotation</b><br/>84 landmark joints<br/>anatomical skeleton"]
+      M3["<b>Rig · clothing</b><br/>MakeHuman garments"]
+      M4["<b>Annotation</b><br/>211 landmarks<br/>closed-body dump"]
       M5["<b>Export</b><br/>previews · USD"]
     end
     WP -->|"each worker runs the full build"| BP
@@ -53,7 +53,7 @@ flowchart TB
       E1["<b>Blender 4.2+</b><br/>Cycles bake · EEVEE"]
       E2["<b>MPFB 2</b><br/>human · targets<br/>rig · MHCLO"]
       E3["<b>MakeHuman packs</b><br/>hair · clothes · shoes"]
-      E4["<b>Custom gown</b><br/>generated MHCLO"]
+      E4["<b>Z-Anatomy</b><br/>bone meshes<br/>CC BY-SA 4.0"]
       E5["<b>OpenUSD</b><br/>UsdSkel · usd-core"]
     end
   end
@@ -79,7 +79,7 @@ flowchart TB
       X2["<b>Horizontal scale-out</b><br/>N workers<br/>~1.5 GB RAM each"]
       X3["<b>Fault isolation</b><br/>one crash = one human<br/>retries · resume · rebuild"]
       X4["<b>Deterministic</b><br/>same seed →<br/>same population"]
-      X5["<b>Cost per human</b><br/>~90 s per worker<br/>~60 MB on disk"]
+      X5["<b>Cost per human</b><br/>~70–90 s per worker<br/>~60 MB on disk"]
     end
   end
 
@@ -88,7 +88,7 @@ flowchart TB
   DP -->|"bpy · MPFB API · MHCLO"| ENG
   DP ==>|"USD · metadata · previews"| ST
   CP -.->|"validate · animate · report"| ST
-  ST ==>|"USD humans + landmark joints"| CON
+  ST ==>|"USD humans + landmark metadata"| CON
   ENG ~~~ SC
   CON ~~~ SC
 

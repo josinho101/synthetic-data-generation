@@ -132,9 +132,10 @@ ethnicity_profiles:
 | `subdiv_levels` | subdivision on clothes (0 recommended) |
 | `remove_hidden_body_faces` | keep `false`: the body under clothes is needed for landmarks |
 | `fallback_if_missing` | `skip_slot` (warn and continue) or `error` (fail the human) for a missing fixed asset |
-| `fallback_variant` | variant used when a variant yields no garment at all (e.g. no clothes packs) |
+| `fallback_variant` | variant used when a variant yields no garment at all (e.g. no clothes packs). Shipped: `full_outfit`, which also needs packs, so without packs humans stay unclothed; point it at a variant with a fixed gown `asset:` to get gowns instead |
+| `sock_recolor` | shoe assets in `assets` whose built-in sock is light grey: its pixels (saturation < `max_saturation`, value > `min_value`) are recoloured per sex from `colors` (weights) / `rgb`; `nude` = the human's skin albedo, slightly darkened |
 | `hide_body_under` | slots whose garment hides the body underneath (removed at export; default `[feet]`) |
-| `garment_texture_max_px` | resolution limit of baked garment textures |
+| `garment_texture_max_px` | resolution limit of baked garment textures (1024) |
 | `poke_through_clearance_cm` | garment vertices closer than this to the skin (or inside it) are pushed out after fitting, so no skin shows through tight clothes on full bodies; the body itself stays complete (0 = off) |
 | `poke_through_max_edge_cm` | garment edges near the skin are first split to this length, so coarse garments cannot cut through curved body parts between their vertices |
 | `layer_offset_cm` | the outer garment of a top + bottom pair is pushed out by this (trousers over tucked shirts, otherwise top over bottom) |
@@ -227,6 +228,9 @@ After editing `gown.yaml` run `scripts/make_gown.py` again.
 
 ## 3.5 `landmarks.yaml`: anatomical landmarks
 
+Landmarks are always computed and written to `<id>.json`. They become USD joints only with the `procedural` / `none`
+skeletal layers (or `skeleton.zanatomy.keep_landmark_joints: true`), see 3.7.
+
 | Key | Meaning |
 |---|---|
 | `anchors.<name>` | basemesh vertex ID (same topology on every human). `null` = not calibrated |
@@ -238,8 +242,13 @@ After editing `gown.yaml` run `scripts/make_gown.py` again.
 | `spine.internal_depth.<C/T/L/S>` | `fraction` of the local antero-posterior depth (ray cast) **or** `fixed_cm` (+ `scale_with_stature`) |
 | `spine.emit` | `internal` (vertebral body, `LM_T7`) and/or `surface` (skin over the spinous process, `LM_T7_surf`) |
 | `spine.max_forward_cm` | posterior profile points may lie at most this far in front of the anchor chain |
-| `parent_bones` | landmark → MPFB default-rig bone. Ranges (`T1-T4`) and `{side}` (L/R) expand |
+| `parent_bones` | landmark → MPFB default-rig bone, or `auto_axial` (nearest bone of the axial chain, per human). Ranges (`T1-T4`), wildcards (`rib*_end_{side}`) and `{side}` (L/R) expand |
 | `bone_prefix`, `bone_length_m` | joint naming (`LM_`) and display length |
+| `frames.prefix`, `frames.parents` | oriented anatomical frames (`AN_skull`, `AN_thorax`, `AN_pelvis`, `AN_scapula_L/R`, sternum, ribs, ankle axes) and their parent bones (06 §6.1, §6.8) |
+| `spine_shape.enabled` | per-human spinal shape for the vertebral landmarks (skin unchanged, 06 §6.8) |
+| `spine_shape.kyphosis_deg` | T4–T12 Cobb angle: `mean_at_20` + `per_year_after_20` × (age − 20), `sd`, clamped to [`min`, `max`] |
+| `spine_shape.lordosis_deg` | L1–S1 Cobb angle: `mean`, `sd`, `min`, `max` |
+| `spine_shape.scoliosis` | probability `prevalence_at_40` + `per_year_after_40` × (age − 40); Cobb in `cobb_range_deg`; apex from `apex_levels` |
 | `heights_from_landmarks` | landmark → metadata key for heights above the floor (e.g. `tragus_L: ear_height_left_cm`) |
 
 Add a landmark, e.g. the 7th rib tip on the left: add `rib7_L: <vertex id>` under `anchors`
@@ -283,11 +292,37 @@ Add a landmark, e.g. the 7th rib tip on the left: add `rib7_L: <vertex id>` unde
 | `bake.device` | auto | `auto` / `GPU` / `CPU` for the Cycles texture bake |
 | `bake.samples`, `bake.margin_px` | 4, 8 | bake quality / UV island padding |
 
-## 3.7 `anatomy.yaml`
+## 3.7 `skeleton.yaml`: skeletal layer
 
-Anatomical skeleton options; see [11_anatomy.md](11_anatomy.md#113-configuration-configsanatomyyaml).
+See [14_skeleton_layer.md](14_skeleton_layer.md).
 
-## 3.8 `logging.yaml`
+| Key | Default | Meaning |
+|---|---|---|
+| `layer` | zanatomy | `zanatomy` (Z-Anatomy bones fitted into the body, anatomical rig), `procedural` (schematic bones from `anatomy.yaml`, MPFB rig), `none` (MPFB rig, no bones) |
+| `zanatomy.reference_dir` | `assets/zanatomy` | reference package built by `scripts/build_zanatomy_reference.py` |
+| `zanatomy.iters`, `threads` | 300, 0 | optimiser iterations; torch threads (0 = torch default) |
+| `zanatomy.length_bound`, `breadth_bound` | 0.25, 0.40 | bone length / breadth scale limited to exp(±bound) of the stature scale |
+| `zanatomy.normal_bmi`, `thin_tissue_mm` | 23.5, 8 | soft-tissue depths scale with BMI / `normal_bmi`; thin sites (≤ `thin_tissue_mm`) only by its square root |
+| `zanatomy.contain_ramp` | [100, 150] | iterations over which the containment loss fades in |
+| `zanatomy.weights`, `lr` | see file | loss weights (joint, landmarks, containment, symmetry, smoothness, rotation, scale) and learning rates |
+| `zanatomy.max_influences` | 4 | skin weights per vertex after re-weighting |
+| `zanatomy.keep_landmark_joints` | false | `true` keeps the `LM_` / `AN_` joints, re-parented under the anatomical bones |
+| `zanatomy.bone_purpose`, `bone_color_rgb` | guide, [0.93, 0.90, 0.82] | UsdGeom purpose and colour of the bone / teeth meshes |
+| `zanatomy.body_match_tolerance_mm` | 1.0 | the saved closed body must match the exported body this closely (else the human fails) |
+| `zanatomy.warn_exposed_frac` | 0.03 | warn when more bone samples than this lie outside the skin |
+
+## 3.8 `anatomy.yaml`
+
+Options of the `procedural` skeletal layer only; see [11_anatomy.md](11_anatomy.md#113-configuration-configsanatomyyaml).
+
+## 3.9 `poses.yaml`
+
+Exam posing (`scripts/pose_exams.py`, 06 §6.8). Only the joint roles are rig-specific: `axial_chain`, `spine_chain`,
+`neck_chain`, `clavicle`, `humerus`, `elbow`, `wrist`, `femur`, `knee`, the twist splits (`*_twist`), and `locked`
+joints (pelvis halves, index / middle metacarpals). An optional `rom:` block overrides `pose_rules.ROM`. The names are
+MPFB USD joint names, so posing needs an MPFB-rig human (`skeleton.layer: procedural` or `none`).
+
+## 3.10 `logging.yaml`
 
 See [09_logging_and_monitoring.md](09_logging_and_monitoring.md).
 

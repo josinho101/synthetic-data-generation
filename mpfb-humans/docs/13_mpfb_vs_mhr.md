@@ -5,6 +5,11 @@ Meta's **Momentum Human Rig (MHR)** instead of MPFB. Both pipelines share their 
 code, so their outputs can be compared joint for joint. This page records how the two compare, as of
 2026-10-26.
 
+> This comparison uses the **MPFB rig** (today `skeleton.layer: procedural` or `none`). Since 2026-10-27
+> the default layer is `zanatomy`, which replaces the MPFB rig by the anatomical Z-Anatomy rig and keeps
+> the landmarks as data only ([14](14_skeleton_layer.md)); the joint counts and exam poses below do not
+> apply to such humans.
+
 ![Exam poses, MPFB vs MHR](images/mpfb_vs_mhr_exam_poses.png)
 
 ![Skeleton, joint and landmark comparison](images/mpfb_vs_mhr_skeleton.png)
@@ -127,7 +132,7 @@ exam pose. The thoracic gap partly reflects the different sampled kyphosis (39°
 
 | Need | Better | Why |
 |---|---|---|
-| Production X-ray SDG today | **MPFB** | gowns, hair, footwear and bone meshes are all in place |
+| Production X-ray SDG today | **MPFB** | clothing, hair, footwear and bone meshes are all in place |
 | Age range (elderly, paediatric) | **MPFB** | age macro; MHR has no age control |
 | Realistic body shape and soft tissue | **MHR** | scan-learned shape space, 5.5× denser mesh |
 | Joint mechanics in exam poses | **MHR** | hinge elbows and knees, anatomical ankle, 198 limits, pivots closer to anatomy |
@@ -141,7 +146,7 @@ before deciding.
 ## 13.6 Reproducing the comparison
 
 ```bash
-# MPFB (this project)
+# MPFB (this project), with skeleton.layer: procedural in configs/skeleton.yaml
 .venv/bin/python scripts/run_pipeline.py --count 1
 .venv/bin/python scripts/pose_exams.py <run>/humans/H0001/H0001.usd
 

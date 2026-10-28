@@ -69,7 +69,7 @@ skin:
   # auto    : mhmat when the system assets are installed, otherwise layered
   source: auto
   dark_texture_from_mst: 7     # MST >= 7 uses the dark-skinned photo texture, below the light/asian one
-  tone_match_strength: 1.0     # 0 = raw photo texture colour, 1 = texture mean matched exactly to skin_albedo_lab
+  tone_match_strength: 1.0     # 0 = raw photo texture colour, 1 = texture median matched exactly to skin_albedo_lab
   tone_jitter: 0.04             # +/- relative brightness jitter so equal tones still differ
   bake_resolution: 2048         # albedo texture size baked for USD
   roughness: 0.45

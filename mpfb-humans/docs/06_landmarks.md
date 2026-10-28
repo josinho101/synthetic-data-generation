@@ -2,10 +2,20 @@
 
 ## 6.1 What you get
 
-Every human's skeleton contains **133 extra joints**, non-deforming children of the MPFB default
-rig bones: **128 landmarks** (prefix `LM_`) and **5 anatomical frames** (prefix `AN_`). The MHR
-pipeline (`mhr-synthetic-human`) emits the same 133 joints with the same names, from the same
-rules (`sdg_humans/landmark_rules.py` is shared verbatim).
+Every human gets **211 landmarks** in `<id>.json → landmarks`: **175 points** (prefix `LM_`) and
+**36 oriented frames** (prefix `AN_`), built from 74 anchor vertices. The table below is the base
+set (128 `LM_` + 5 `AN_`); §6.8 lists the derived joints that make up the rest. The MHR pipeline
+(`mhr-synthetic-human`) emits the same joints with the same names, from the same rules
+(`sdg_humans/landmark_rules.py` is shared verbatim).
+
+**Joints or data.** In the Blender build every landmark is a non-deforming child bone of the MPFB
+default rig. Whether they stay joints in the USD depends on the skeletal layer
+([14](14_skeleton_layer.md)):
+
+* `procedural` / `none`: they are USD joints (`usd_joint` in the JSON) and follow any animation;
+* `zanatomy` (default): the rig is replaced by the anatomical rig and the landmarks are **data only**
+  (`usd_joint: null`), unless `keep_landmark_joints: true`. The fitted bony landmarks and joint
+  centres of the Z-Anatomy skeleton are in `<id>.json → anatomy.points_m`.
 
 | Group | Joints | Parent bones |
 |---|---|---|
@@ -32,9 +42,9 @@ any pose. All other `LM_*` joints are position-only (axes aligned with the world
 | `AN_pelvis` | mid-ASIS | Z ASIS_L → ASIS_R; X from mid-PSIS to mid-ASIS |
 | `AN_scapula_L/R` | acromion | Z along the scapular spine (spine root ↔ acromion, towards the right); X normal to the scapular plane |
 
-Because they are joints, a posed or animated skeleton in Isaac Sim moves them with the body. Their
+Where they are joints, a posed or animated skeleton in Isaac Sim moves them with the body, and their
 world positions per frame give the annotations (see [07](07_usd_isaac_sim.md#76-reading-landmarks-in-isaac-sim)).
-Rest positions, parents and USD joint paths are also stored in `H0001.json → landmarks`.
+Rest positions, parents and USD joint paths (or `null`) are stored in `H0001.json → landmarks`.
 
 ## 6.2 Anchors: one vertex ID for every human
 
@@ -115,7 +125,7 @@ above the pelvis (`root`). With `parent_bones: auto_axial` (default for all spin
 anchors, jugular notch, xiphoid and navel), each landmark is parented per human to the bone of the
 chain `root → spine05 → … → spine01 → neck01–03 → head` whose segment is closest to it. Thoracic
 landmarks therefore follow the chest bones and lumbar landmarks the lower spine when the human bends
-or walks. The bone meshes (vertebrae, ribs, sternum) use the same parents.
+or walks. The `procedural` bone meshes (vertebrae, ribs, sternum) use the same parents.
 
 ## 6.5 QA image
 
@@ -130,7 +140,8 @@ on the ears, shoulders, pelvis and heels.
   Vertebral levels follow population-average segment proportions between four pinned levels.
 * Pinned levels inherit the anchor rules above; expect ±1 vertebral level of uncertainty in the
   mid-thoracic region and ±1–2 cm in internal depth.
-* The rest pose is MPFB's A-pose; posture variations (kyphosis, scoliosis) are not modelled.
+* The rest pose is MPFB's A-pose. Kyphosis, lordosis and scoliosis are sampled per human for the
+  vertebral bodies only (§6.8, `spine_shape`); the skin and the surface points are not reshaped.
 * For higher fidelity, replace the rules with vertex IDs selected by a radiologist on the neutral
   mesh (§6.2), or adjust `segment_ratios` / `internal_depth`.
 
@@ -140,7 +151,8 @@ on the ears, shoulders, pelvis and heels.
 2. `parent_bones.my_point: spine04` (or `my_point_{side}: "clavicle.{side}"` with `_L`/`_R` anchors)
 3. optional `heights_from_landmarks.my_point: my_point_height_cm`
 
-The new joint `LM_my_point` appears in the USD, in the metadata and in the overlay.
+The new point `LM_my_point` appears in the metadata and in the overlay, and in the USD with the
+`procedural` / `none` layers.
 
 ## 6.8 Derived joints, spinal shape and exam posing (2026-10-26)
 
@@ -168,6 +180,9 @@ rotation. Before / target / after values are in `<id>.json → spine_shape`. The
 ```bash
 .venv/bin/python scripts/pose_exams.py <run>/humans/H0001/H0001.usd     # -> H0001_exam_poses.usda + .json
 ```
+
+Posing drives MPFB joint names (`configs/poses.yaml`), so it needs a human built with
+`skeleton.layer: procedural` or `none`; `zanatomy` humans have the anatomical rig (14).
 
 * poses `neutral`, `chest_pa` (hands on hips, shoulders forward, full inspiration), `chest_lateral`
   (arms overhead, full inspiration), `spine_ap`, `spine_lateral` (arms forward), `trunk_flexion_30`,

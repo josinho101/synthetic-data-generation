@@ -7,7 +7,8 @@
 
 | Component | Version | Notes |
 |---|---|---|
-| Python (system) | ≥ 3.10 | runs the orchestrator, sampling, validation and reports |
+| Python (system) | ≥ 3.10 | runs the orchestrator, sampling, USD post-processing, skeletal layer, validation and reports |
+| torch (CPU) + scipy | torch ≥ 2.2 | default `zanatomy` skeletal layer only (skeleton fit) |
 | Blender | ≥ 4.2, tested 5.2.x | any install type; snap: `/snap/bin/blender` |
 | MPFB extension | ≥ 2.0.18 | installed from Blender's extension platform |
 | GPU (optional) | any CUDA/OptiX GPU | texture bake on GPU (2–4 s); CPU also works |
@@ -20,10 +21,14 @@
 ```bash
 cd synthetic-data-generation/mpfb-humans
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt      # pyyaml, numpy, usd-core, pillow, pytest
+.venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch   # CPU torch (skeletal layer)
+.venv/bin/pip install -r requirements.txt      # pyyaml, numpy, usd-core, pillow, pytest, torch, scipy
+.venv/bin/python scripts/build_zanatomy_reference.py   # one time: Z-Anatomy reference -> assets/zanatomy
 ```
 
-Always run the scripts with `.venv/bin/python` (or activate the venv first).
+Always run the scripts with `.venv/bin/python` (or activate the venv first). torch, scipy and the
+reference package are only needed for `skeleton.layer: zanatomy` (the default); see
+[14 §Setup](14_skeleton_layer.md#setup).
 
 ## 2.3 Blender + MPFB
 
@@ -67,7 +72,9 @@ contains that file). Downloads go to `<file>.part` first and are checked to be v
 interrupted download is simply restarted next time.
 
 **Without packs** the pipeline still runs: procedural skin, generated eyes, no hair / eyebrows /
-eyelashes / shoes, and every human falls back to the hospital gown (`clothing.fallback_variant`).
+eyelashes / shoes. The shipped clothing variants and `clothing.fallback_variant` (`full_outfit`) all
+use pack garments, so humans are then **unclothed**. To get gowns instead, add a variant with the
+generated gown as a fixed `asset:` slot (§2.5) and make it the `fallback_variant`.
 
 The pack list is in `configs/export.yaml → asset_packs`:
 
@@ -113,7 +120,16 @@ services**:
 .venv/bin/python scripts/make_gown.py --variant gown_short
 ```
 
-`check_env.py --fix` and `run_pipeline.py` run it automatically when a gown file is missing.
+`check_env.py --fix` / `--setup` and `run_pipeline.py` run it automatically when a clothing variant
+with `pct > 0` uses a gown file as a fixed `asset:` and that file is missing. **The shipped variants
+use no gown** (`configs/clothing.yaml`), so this only matters after you add one, e.g.
+
+```yaml
+  gown:
+    pct: 20
+    slots:
+      full_body: {asset: custom/hospital_gown/gown_standard.mhclo}
+```
 
 The same generator also writes the **office skirt** (`variants.office_skirt` with `type: skirt`):
 a tube from the natural waist (`waist_above_hip_cm` above the hip joints) to the knee. It follows
@@ -184,14 +200,15 @@ Example output:
 [config]    OK   all YAML files valid
 [preflight] OK   python            Python 3.12.3
 [preflight] OK   python packages   pyyaml, numpy, usd-core, pillow
-[preflight] OK   blender           Blender 5.2.2
+[preflight] OK   blender           Blender 5.2.2 LTS
 [preflight] OK   mpfb              MPFB 2.0.18 at ~/.config/blender/5.2/extensions/blender_org/mpfb
 [preflight] OK   asset packs cfg   7/7 configured packs installed
 [preflight] OK   mpfb import       bl_ext.blender_org.mpfb 2.0.18 (Blender 5.2.2 LTS)
 [preflight] OK   asset packs       skins 23, eyes 2, eyebrows 12, eyelashes 4, hair 10, clothes 90
-[preflight] OK   gpu (bake)        OPTIX:Tesla T4
+[preflight] OK   gpu (bake)        CUDA:Tesla T4, HIP:Tesla T4, ONEAPI:Tesla T4, OPTIX:Tesla T4
 [preflight] OK   clothing assets   all fixed clothing assets present
-[preflight] OK   landmark anchors  26 anchors calibrated
+[preflight] OK   landmark anchors  74 anchors calibrated
+[preflight] OK   skeleton layer    zanatomy: zanatomy-ref-1 (156 bones, 158 meshes)
 [preflight] OK   output dir        /…/output/humans writable, 80.1 GB free (need ~9.0 GB)
 [preflight] PASSED
 ```
@@ -206,6 +223,7 @@ Example output:
 | asset packs cfg | every pack in `export.asset_packs` installed (installs them with `--setup` / `--install-packs`) | warn (`asset_mode: auto`) / error (`required`) |
 | asset packs | Blender sees system assets (skins, hair, …) | warn (`asset_mode: auto`) / error (`required`) |
 | gpu (bake) | Cycles sees a GPU | warn → CPU bake |
-| clothing assets | every fixed `asset:` file exists (auto-generated with `--fix`) | error |
+| clothing assets | every fixed `asset:` file of a variant with `pct > 0` exists (gowns auto-generated with `--fix`) | error |
 | landmark anchors | no `null` anchors | error |
+| skeleton layer | the layer's own needs; `zanatomy`: torch + scipy importable, `assets/zanatomy` present with matching sha256s | error |
 | output dir | writable; free disk ≥ count × `est_mb_per_human` | error / warn |

@@ -50,7 +50,7 @@ approach that keeps the human realistic.
 
 1. **The human is not changed.** The layer works in skeleton space. It first checks that the saved closed body
    matches the exported body (≤ `body_match_tolerance_mm`).
-2. **Fit** (`fit.py`, about 15–30 s per human on CPU). Every anatomical bone gets a rotation, a length scale
+2. **Fit** (`fit.py`, about 10–15 s per human on 2 CPU cores; 14–20 s for the whole layer). Every anatomical bone gets a rotation, a length scale
    (0.78–1.28 of the stature scale) and a breadth/depth scale (0.67–1.49). Children attach at the parent's scaled
    point, so the skeleton stays connected and every bone keeps its real shape. Losses:
    - **joint prior:** each joint where its ring of reference-skin vertices puts it (MakeHuman topology gives the
@@ -72,8 +72,8 @@ approach that keeps the human realistic.
 
    The MPFB surface landmarks stay in `landmarks` as data, with `usd_joint: null`.
 
-Typical result (2026-10-27 runs): landmark residual median 9–10 mm (p90 ~25 mm), and ~1–1.5 % of bone samples
-outside the skin. The bones are `guide`, so they never show in RGB renders. Known limits:
+Typical result (runs of 2026-10-27/28): landmark residual median 8–10 mm (p90 25–30 mm), and ~1–3 % of bone
+samples outside the skin (a warning above `warn_exposed_frac`, 3 %). The bones are `guide`, so they never show in RGB renders. Known limits:
 - the sternum sits 2–3 cm out in very slim men (Z-Anatomy is one man with a deep chest);
 - the scapula is a little out in arms-up poses (skin weights);
 - the pelvis keeps its male shape in women.

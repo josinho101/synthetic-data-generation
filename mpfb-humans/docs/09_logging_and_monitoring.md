@@ -43,13 +43,18 @@ dict_config:                 # standard logging.config.dictConfig
 ```
 [run]       run-20261018-211500 -> /…/output/humans/run-20261018-211500
 [preflight] OK   python            Python 3.12.3
-[preflight] OK   blender           Blender 5.2.2
+[preflight] OK   blender           Blender 5.2.2 LTS
+...
+[preflight] OK   skeleton layer    zanatomy: zanatomy-ref-1 (156 bones, 158 meshes)
 ...
 [sample]    150 humans | male 75 female 75 | south_asian 30 ... | 0.3s -> /…/manifest.json
 [build]     150 to build with 1 worker(s)
-[build]  start  H0001 F 77y south_asian     mesomorph_ectomorph  target 162.6cm gown
-[build]  [   1/150 |   0.7%] OK   H0001 F 77y south_asian     mesomorph_ectomorph  163.0cm 48.8kg BMI 18.4 gown | 26.1s | elapsed 26s ETA 1h04m45s
-[build]  [   2/150 |   1.3%] WARN H0002 M 34y caucasian       endomorph            181.2cm 112.4kg BMI 34.2 gown | 27.3s | elapsed 53s ETA 1h05m10s | warnings: 1
+[build]  start  H0001 F 64y caucasian       mesomorph            target 167.6cm full_outfit
+H0001: USD post-processing {'clothing_holes': {...}, 'root_joint': {'name': 'SkelOrigin', 'added': True}}
+H0001: skeleton fit in 10.1s, landmarks median 9.0 mm, exposed ~0.022
+H0001: [skeleton] zanatomy layer done in 17.6s {'landmark_residual_mm': {'median': 9.0, 'p90': 30.0}, ...}
+[build]  [   1/150 |   0.7%] OK   H0001 F 64y caucasian       mesomorph            167.8cm 54.1kg BMI 19.2 full_outfit | 49.0s | elapsed 1m26s ETA 3h34m
+[build]  [   2/150 |   1.3%] WARN H0002 M 34y caucasian       endomorph            181.2cm 112.4kg BMI 34.2 top_and_jeans | 52.3s | elapsed 2m45s ETA 3h20m | warnings: 1
 ...
 [report]    configured vs achieved
   sex
@@ -60,7 +65,8 @@ dict_config:                 # standard logging.config.dictConfig
 ```
 
 Each finished human prints: progress count and percentage, status (OK / WARN / FAIL), identity
-summary, achieved height/weight/BMI, clothing, build time, elapsed time and ETA. A failed human also
+summary, achieved height/weight/BMI, clothing variant, Blender build time, elapsed time and ETA. The
+lines before it log the USD post-processing and the skeletal layer (fit residuals). A failed human also
 prints its error and log path.
 
 ## 9.4 Diagnosing a failed human
@@ -68,6 +74,8 @@ prints its error and log path.
 1. Find it: `summary.json → failed`, `errors.log`, or the `FAIL` console line.
 2. Open `logs/humans/<id>.log`: the last `step … ...` line without `done` is the failing step.
    The traceback follows.
+   Errors after the Blender build (`USD post-processing: …`, `skeletal layer: …`, `USD validation: …`)
+   are in `pipeline.log` / `errors.log` instead, with the traceback.
 3. If needed, read `logs/humans/<id>.blender.log` for MPFB / Blender messages.
 4. `work/<id>/build_args.json` holds the exact worker input. Re-run one human with
    `run_pipeline.py --only <id> --run-dir <run>`.
@@ -75,10 +83,10 @@ prints its error and log path.
 Example worker log excerpt (with `worker_level: DEBUG`):
 
 ```
-20:51:02 | INFO  | sdg_humans.blender.pipeline:31 | step fit ...
-20:51:02 | DEBUG | sdg_humans.blender.fit:33 | height solver it=0 macro=0.5000 height=165.21cm error=+2.61
-20:51:02 | DEBUG | sdg_humans.blender.fit:33 | height solver it=1 macro=0.2500 height=158.02cm error=-4.58
+20:51:02 | INFO  | sdg_humans.blender.pipeline:30 | step fit ...
+20:51:02 | DEBUG | sdg_humans.blender.fit:39 | height solver it=0 macro=0.5000 height=165.21cm error=+2.61
+20:51:02 | DEBUG | sdg_humans.blender.fit:39 | height solver it=1 macro=0.2500 height=158.02cm error=-4.58
 ...
-20:51:03 | INFO  | sdg_humans.blender.fit:60 | volume=48.3L mass=48.8kg height=163.0cm BMI=18.4
-20:51:03 | INFO  | sdg_humans.blender.pipeline:34 | step fit done in 0.55s
+20:51:03 | INFO  | sdg_humans.blender.fit:65 | volume=48.3L mass=48.8kg height=163.0cm BMI=18.4
+20:51:03 | INFO  | sdg_humans.blender.pipeline:33 | step fit done in 0.55s
 ```

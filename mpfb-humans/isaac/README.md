@@ -11,6 +11,10 @@ Three small scripts (only `pxr` needed: usd-core, or the Python that ships with 
 The pipeline writes `<id>_anim.usda` next to every `<id>.usd` only when `export.animation.enabled: true`
 (off by default); otherwise create it with step 1 below.
 
+> The motion drives **MPFB joint names**, so it needs humans built with `skeleton.layer: procedural` or `none`
+> (`configs/skeleton.yaml`). With the default `zanatomy` layer the USD has the anatomical rig; the pipeline then
+> skips the animation with a warning ([docs/14](../docs/14_skeleton_layer.md#consequences-of-the-anatomical-rig)).
+
 ## 1. Create an animated scene (if not done by the pipeline)
 
 ```bash
@@ -47,8 +51,8 @@ How it works:
 * Walking and turning drive the referenced prim's `translate` and `rotateZ` (root motion). The
   skeleton animation itself is in place.
 * Every joint not animated keeps its rest transform. The `LM_*` landmark joints and the bone meshes
-  follow automatically, and so do the clothes (skinned to the same skeleton; the gown hem uses
-  blended weights so it sways between the legs).
+  follow automatically, and so do the clothes (skinned to the same skeleton; a generated gown's hem
+  uses blended weights so it sways between the legs).
 
 ## Reading landmarks during the animation
 
@@ -66,6 +70,6 @@ positions = reader.world_positions(Usd.TimeCode(frame))     # {"T7": (x, y, z), 
 * Procedural motion: plausible, but not motion capture. There is some foot sliding during walk and
   turn, and no inverse kinematics.
 * Clothing deforms by skinning only (no cloth simulation). For real cloth dynamics, Isaac Sim's
-  PhysX deformable / particle cloth can be applied to the gown mesh. That is not set up here.
+  PhysX deformable / particle cloth can be applied to the garment meshes. That is not set up here.
 * To use your own clips, retarget BVH / FBX motion onto the MPFB default rig in Blender, or replace
   `motion.pose_at()`.

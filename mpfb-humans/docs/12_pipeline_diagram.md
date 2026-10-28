@@ -9,12 +9,12 @@ flowchart TB
     direction LR
     P1["population.yaml<br/>count · seed · quotas for sex,<br/>age, ethnicity, somatotype<br/>height distributions"]
     P2["appearance.yaml<br/>race mix · Monk skin tone<br/>face detail ranges · eyes · hair"]
-    P3["clothing.yaml + gown.yaml<br/>hospital gown · shirt + jeans · skirt<br/>colours · length · sleeves"]
-    P4["landmarks.yaml + anatomy.yaml<br/>70 landmark anchors (128 LM_ + 5 AN_ joints)<br/>~80 anatomical bone meshes"]
+    P3["clothing.yaml + garment_catalog.yaml<br/>full outfits · top + jeans · shoes<br/>colours (gown.yaml: optional gown)"]
+    P4["landmarks.yaml + skeleton.yaml<br/>74 anchors → 175 LM_ + 36 AN_ landmarks<br/>skeletal layer: Z-Anatomy · procedural · none"]
     P5["export.yaml<br/>workers · USD · bake<br/>preview · animation"]
   end
 
-  PF{{"Preflight<br/>Python · Blender · MPFB · asset packs · GPU<br/>fail fast before any compute"}}
+  PF{{"Preflight<br/>Python · Blender · MPFB · asset packs · GPU · skeletal layer<br/>fail fast before any compute"}}
 
   subgraph S["② SAMPLING ENGINE: pure Python, ~0.3 s for 150 humans"]
     direction LR
@@ -28,14 +28,15 @@ flowchart TB
   subgraph B["③ BUILD ENGINE: Blender + MPFB, one headless process per human, N in parallel"]
     direction LR
     B1["Body and identity<br/>MPFB macros · face targets<br/>height fit · BMI from volume"] --> B2["Skin and looks<br/>tone-matched skin<br/>Cycles texture bake · hair, eyes"]
-    B2 --> B3["Rig and clothing<br/>163-bone rig<br/>gown or MakeHuman garments"]
-    B3 --> B4["Annotation<br/>128 landmark + 5 frame joints<br/>anatomical skeleton"]
+    B2 --> B3["Rig and clothing<br/>163-bone MPFB rig<br/>MakeHuman garments · shoes"]
+    B3 --> B4["Annotation<br/>175 landmark + 36 frame joints<br/>spinal shape · measurements"]
     B4 --> B5["Export<br/>UsdSkel USD · previews<br/>metadata JSON"]
   end
 
-  subgraph V["④ VALIDATE, ANIMATE, REPORT: usd-core"]
+  subgraph V["④ POST, SKELETON, VALIDATE, REPORT: usd-core · torch"]
     direction LR
-    V1["USD checks<br/>skeleton · skinning · units<br/>textures · landmark joints"] --> V2["Procedural animation<br/>idle, walk, jump, walk back"]
+    V0["USD post + skeletal layer<br/>clothing holes · SkelOrigin<br/>Z-Anatomy fit · anatomical rig"] --> V1["USD checks<br/>skeleton · skinning · units<br/>textures · metadata joints"]
+    V1 --> V2["Procedural animation (optional)<br/>MPFB rig only"]
     V2 --> V3["Population report<br/>configured vs achieved<br/>CSV · contact sheet"]
   end
 
@@ -48,7 +49,7 @@ flowchart TB
     X2["Horizontal scale-out<br/>N workers, ~1.5 GB RAM each"]
     X3["Fault isolation<br/>retries · resume · rebuild one human"]
     X4["Deterministic<br/>same seed → same population"]
-    X5["Cost per human, per worker<br/>~90 s · ~60 MB on disk"]
+    X5["Cost per human, per worker<br/>~70–90 s · ~60 MB on disk"]
   end
 
   P --> PF --> S --> M --> B --> V --> O --> D
@@ -63,7 +64,7 @@ flowchart TB
   class P1,P2,P3,P4,P5 cfg
   class S1,S2,S3,S4 smp
   class B1,B2,B3,B4,B5 bld
-  class V1,V2,V3 val
+  class V0,V1,V2,V3 val
   class PF,M,O,D out
   class X1,X2,X3,X4,X5 scl
 ```
@@ -71,7 +72,7 @@ flowchart TB
 ## Reading the diagram
 
 * **Parameterized.** Every property of a human (sex, age, ethnicity, skin tone, build, height,
-  face, clothing, landmarks) comes from a distribution or quota in a YAML file. Changing the
+  face, clothing, landmarks, skeleton) comes from a distribution or quota in a YAML file. Changing the
   population means editing numbers, not code.
 * **Two engines, one contract.** The sampling engine (pure Python) resolves all randomness into
   `manifest.json`. The build engine (Blender + MPFB) only reads that manifest, so a build depends

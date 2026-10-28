@@ -130,6 +130,6 @@ sock_recolor:
 #   error     : fail the human
 fallback_if_missing: skip_slot
 
-# Used when a variant ends up with no garment at all (e.g. the clothes packs are not installed),
-# so nobody is generated unclothed by accident.
+# Used when a variant ends up with no garment at all (e.g. a garment is not installed). full_outfit also
+# needs the clothes packs: without them humans stay unclothed (point this at a variant with a gown asset: instead).
 fallback_variant: full_outfit
