@@ -48,6 +48,8 @@ def parse_args(argv=None):
     mode.add_argument("--headless", action="store_true", help="run Isaac Sim without a window")
     mode.add_argument("--gui", action="store_true", help="run Isaac Sim with a window (default unless isaac.headless)")
     parser.add_argument("--no-capture", action="store_true", help="animate only, no image capture (capture.enabled)")
+    parser.add_argument("--no-overlay", action="store_true",
+                        help="do not draw the annotations into the RGB images (annotations.overlay.enabled)")
     parser.add_argument("--keep-open", action="store_true", help="GUI: keep Isaac Sim open after the last visit")
     parser.add_argument("--set", action="append", metavar="KEY=VALUE", default=[],
                         help="override any config value, e.g. --set poses.timing.fov_on_s=2 (repeatable)")
@@ -69,6 +71,7 @@ def main(argv=None) -> int:
             "isaac.headless": True if args.headless else (False if args.gui else None),
             "isaac.keep_open": True if args.keep_open else None,
             "capture.enabled": False if args.no_capture else None,
+            "annotations.overlay.enabled": False if args.no_overlay else None,
         })
         cfg = load_config(args.config, overrides)
         exams = cfg["run"]["exams"]

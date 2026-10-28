@@ -11,7 +11,10 @@ anything starts, and errors end the run with exit code 2.
 | `sequence.yaml` | visit route and idle times, walking, hand-IK speed, timeouts, FOV light |
 | `poses.yaml` | projections (facing + arm pose), arm-pose hand targets, timing of each projection |
 | `isaac.yaml` | Isaac Sim path and mode, motion library, idle animations, NavMesh agent |
+| `retarget_zanatomy.yaml` | Z-Anatomy anatomical joint → behavior rig tag map, root joint, skeleton axes |
 | `retarget_mpfb.yaml` | MPFB joint → behavior rig tag map, inserted root joint, skeleton axes |
+| `capture.yaml` | image capture: cameras, streams, fps ([10](10_capture.md)) |
+| `annotations.yaml` | per-frame vertebra / hip / shoulder heights and their overlay in the RGB images |
 
 ## 3.1 `run.yaml`
 
@@ -134,6 +137,7 @@ arm_poses:
 | `run_timeout_s` | `3600` | whole Isaac run; the process is terminated after this |
 | `motion_library` | NVIDIA content URL | HumanMotionLibrary USD |
 | `motion_library_rig` | `Human` | retarget rig of the motion library |
+| `retarget_maps` | `zanatomy_anatomical: retarget_zanatomy`, `default: retarget_mpfb` | rig id (`<id>.json → skeleton.rig`) → retarget config. `default` serves any other rig and humans without a rig id. Every value must be a `retarget_*.yaml` in the config folder |
 | `idle_animation_tags` | `[Idle]` | allowed idle variations. Isaac's default set also has IdleTired (stooped), IdleGroove, IdleTaunt, … |
 | `extensions` | navigation, retarget, behavior, graph | enabled at start-up |
 | `navmesh.margin_m` | `3.0` | NavMesh volume = room bounds + margin (covers the area outside the entrance) |
@@ -144,7 +148,26 @@ arm_poses:
 | `navmesh.agent_min_island_radius_m` | `0.2` | smaller walkable islands are dropped |
 | `navmesh.sampling_distance_m` | `0.05` | voxel size. Isaac's 0.2 m default closes the narrow check-in room |
 
-## 3.5 `retarget_mpfb.yaml`
+## 3.5 Retarget maps: `retarget_zanatomy.yaml`, `retarget_mpfb.yaml`
+
+Each human is retargeted with the map of its rig (`isaac.retarget_maps`). The log line
+`Human H0001: rig zanatomy_anatomical -> retarget_zanatomy.yaml` shows the choice. Both files have the same keys.
+
+`retarget_zanatomy.yaml` (the default humans: mpfb-humans skeleton layer `zanatomy`):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `root_joint_name` | `SkelOrigin` | already the top joint of these humans (nothing is inserted) |
+| `up_axis` / `forward_axis` | `Z` / `MINUS Y` | skeleton facing, set explicitly |
+| `tags` | 61 entries | Hips → pelvis; Spine1 / Spine2 / Chest → vertebra_L4 / vertebra_L1 / vertebra_T7; Neck1 / Neck2 / Head → vertebra_C7 / vertebra_C4 / skull; Shoulder / Arm / ForeArm / Hand → clavicle / humerus / ulna / carpus; Leg / Shin / Foot / ToeBase → femur / tibia / talus / proximal_phalanx3_foot; fingers → metacarpal / proximal / middle / distal phalanges. No eye tags (the rig has no eye joints) |
+
+Untagged joints keep their rest pose relative to their parent: the vertebrae between the tagged levels, the scapula
+(under the clavicle) and the radius (under the ulna). Before the retarget, sdg checks that the tagged joints form
+chains down the skeleton (`sdg_xray/rig.py check_tag_chains`). If the spine bends too stiffly, the Spine and Chest
+levels are the setting to change.
+
+`retarget_mpfb.yaml` (MPFB default rig: skeleton layers `procedural` / `none`, and humans built before the Z-Anatomy
+rig):
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -165,7 +188,30 @@ arm_poses:
 | `--isaac-root DIR` | `isaac.root` |
 | `--headless` / `--gui` | `isaac.headless` true / false |
 | `--keep-open` | `isaac.keep_open: true` |
+| `--no-capture` | `capture.enabled: false` |
+| `--no-overlay` | `annotations.overlay.enabled: false` (clean RGB images; the annotation JSON is still written) |
 | `--set KEY=VALUE` | any key, repeatable |
 | `--dry-run` | resolve inputs and print the plan; Isaac is not started and no SD folder is created |
 | `-v`, `--verbose` | also print Isaac Sim's own console output |
 | `--config DIR` | another config folder |
+
+## 3.7 `annotations.yaml`
+
+Per captured frame, `annotations/<frame>.json` holds heights in cm above the room floor, and the same points are drawn
+into the RGB images ([10.5](10_capture.md#105-anatomy-annotations)). This needs Z-Anatomy humans (`rig
+zanatomy_anatomical`). Humans with another rig get no annotations, and a warning is logged per human.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `enabled` | `true` | write `annotations/<frame>.json` (only while capturing) |
+| `ndigits` | `1` | decimals of the cm values |
+| `vertebrae` | `[C1 … L5]` (24) | vertebra levels. Point = mid-point of the vertebra (bounding-box centre of its bone mesh), moving with joint `vertebra_<level>` |
+| `mesh_prefix` | `bone_vertebra_` | name of the vertebra bone mesh: `<mesh_prefix><level>` |
+| `landmarks.hip.left/right` | `greater_trochanter_l/r` on `femur_L/R` | hip point (`point` = a key of `<id>.json → anatomy.points_m`, `joint` = the bone it moves with) |
+| `landmarks.shoulder.left/right` | `acromion_l/r` on `scapula_L/R` | shoulder point |
+| `overlay.enabled` | `true` | draw the points into `RGB/<frame>.png`. **With the overlay on, the RGB images are not clean training images.** `--no-overlay` turns it off |
+| `overlay.marker_radius_px` | `4` | dot radius at 720 px image height (scaled with the image height) |
+| `overlay.font_size_px` | `14` | label size at 720 px image height |
+| `overlay.label_vertebrae` | `all` | `all` or `every_2nd` (every vertebra gets a dot either way) |
+| `overlay.frame_number` | `true` | `frame 000123` in the top-left corner |
+| `overlay.colors` | yellow / cyan / magenta / white | `vertebrae`, `hip`, `shoulder`, `text` as `[r, g, b]` |

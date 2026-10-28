@@ -5,14 +5,17 @@ Started by scripts/run_pipeline.py with a job file:   <isaac>/python.sh isaac/ru
 Per visit (one human, one room, one exam) a new in-memory stage is built (nothing is saved):
   /World/Room                   room reference; detector + tube at the patient's T7 height (room/isaac/compose_scene.py)
   /World/HumanMotionLibrary     NVIDIA human motion library (omni.anim.behavior)
-  /World/Patients/<id>          the synthetic human (payload) at the start point, an identity joint "SkelOrigin" inserted
-                                above MPFB's root, BehaviorAgentAPI + retarget tags and axes (configs/retarget_mpfb.yaml)
+  /World/Patients/<id>          the synthetic human (payload) at the start point, an identity joint "SkelOrigin" at the
+                                top of its skeleton, BehaviorAgentAPI + retarget tags and axes of its rig
+                                (isaac.retarget_maps: configs/retarget_zanatomy.yaml, retarget_mpfb.yaml)
   /World/NavMeshVolume          NavMesh over room, check-in room and the area outside the entrance (patient-sized agent,
                                 5 cm sampling; set as this stage's navmeshSettings, Isaac preferences are not changed)
   .../TubeHead/FOVLight         collimator field light (RectLight + ShapingAPI along the beam)
 The patient then performs the planned steps (sdg_xray/visit.py) through the behavior agent API: move_to per route point
 (natural walking with NavMesh path finding), idle(facing) (turns in place), custom_action (the X-ray arm poses, as pose
 clips added to the motion library, see sdg_xray/pose_clips.py), and the FOV light is switched. Every step is printed ("[xray] ...") and written to timeline.txt.
+While capturing, every frame also gets annotations/<frame>.json (vertebra, hip and shoulder heights read from the
+animated skeleton, sdg_xray/annotations.py), and the points are drawn into the RGB images (annotations.overlay).
 Any error prints "[xray] [ERROR] ...", marks the visit failed in sd_info.json and ends Isaac Sim with exit code 1.
 """
 
@@ -91,7 +94,8 @@ from omni.anim.retarget.core.scripts.rig import RetargetRig  # noqa: E402
 from omni.anim.retarget.core.scripts.utils import set_forward_axis, set_up_axis  # noqa: E402
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdSkel, Vt  # noqa: E402
 
-from sdg_xray import clothing, fov_ies, pose_clips  # noqa: E402
+from sdg_xray import annotations, clothing, fov_ies, pose_clips  # noqa: E402
+from sdg_xray.rig import TPOSE_SEGMENTS, check_tag_chains  # noqa: E402
 
 sys.path.insert(0, str(Path(JOB["compose_scene"]).parent))
 import compose_scene  # noqa: E402  (room/isaac/compose_scene.py)
@@ -261,11 +265,11 @@ def add_patient(stage, human: dict, spawn: dict) -> Sdf.Path:
     if len(skelroots) != 1 or len(skeletons) != 1:
         raise ExamError(f"human {human['id']}: expected 1 SkelRoot and 1 Skeleton, found {len(skelroots)} / {len(skeletons)}")
     skelroot, skel = skelroots[0], UsdSkel.Skeleton(skeletons[0])
-    add_identity_root(skelroot, skel, JOB.get("root_joint_name", "SkelOrigin"))
+    add_identity_root(skelroot, skel, human["retarget"]["root_joint_name"])
     if ISAAC.get("hide_anatomy", True):
         hidden = 0
         for prim in Usd.PrimRange(skelroot):
-            if prim.GetName().startswith("bone_") and prim.IsA(UsdGeom.Imageable):
+            if prim.GetName().startswith(("bone_", "teeth_")) and prim.IsA(UsdGeom.Imageable):
                 UsdGeom.Imageable(prim).MakeInvisible()
                 hidden += 1
         say(f"  stage: {hidden} anatomical bone meshes hidden (isaac.hide_anatomy)")
@@ -284,17 +288,18 @@ def add_patient(stage, human: dict, spawn: dict) -> Sdf.Path:
 
     skelroot.ApplyAPI(behavior_schema.BEHAVIOR_AGENT_API)
     skelroot.GetRelationship("behavior:motionLibrary").SetTargets([Sdf.Path(MOTION_LIB_PATH)])
-    retarget(skel, human["id"])
+    retarget(skel, human)
     omni.kit.commands.execute("ApplyNavMeshAPICommand", prim_path=skelroot.GetPath(), api=NAV_MESH_EXCLUDE_API)
     APP.update()
-    say(f"  stage: patient {human['id']} ({human.get('height_cm')} cm) is a behavior agent")
+    say(f"  stage: patient {human['id']} ({human.get('height_cm')} cm, rig {human.get('rig')}) is a behavior agent")
     return skelroot.GetPath()
 
 
 def add_identity_root(skelroot, skel, name: str) -> None:
-    """MPFB's root joint sits at the pelvis. The retargeter needs Hips below a root joint and the behavior system
-    needs the skeleton root at the origin, so insert an identity joint above it (skeleton, per-joint primvars and
-    every skinned mesh's skel:joints; in the in-memory stage only). `name` must not be "root" in any case."""
+    """The retargeter needs Hips below a root joint and the behavior system needs the skeleton root at the origin.
+    Humans built before the humans pipeline added it (MPFB's top joint "root" sits at the pelvis) get an identity
+    joint above it here (skeleton, per-joint primvars and every skinned mesh's skel:joints; in the in-memory stage
+    only). `name` must not be "root" in any case."""
     joints = list(skel.GetJointsAttr().Get())
     if joints[0] == name:
         return
@@ -312,17 +317,25 @@ def add_identity_root(skelroot, skel, name: str) -> None:
             binding.CreateJointsAttr().Set([f"{name}/{j}" for j in source])
 
 
-def retarget(skel, human_id: str) -> None:
-    tags = JOB["retarget_tags"]
+def retarget(skel, human: dict) -> None:
+    """Tag map, axes and retarget pose of the human's rig (human["retarget"]: isaac.retarget_maps -> retarget_*.yaml)."""
+    human_id, block = human["id"], human["retarget"]
+    tags = block["tags"]
     leafs = {j.split("/")[-1] for j in skel.GetJointsAttr().Get()}
     missing = sorted(j for j in tags.values() if j not in leafs)
     if missing:
-        raise ExamError(f"human {human_id}: retarget joints missing in the skeleton: {', '.join(missing)}")
+        raise ExamError(f"human {human_id}: retarget joints of {block['config']}.yaml missing in the skeleton "
+                        f"(rig {human.get('rig')}): {', '.join(missing)}")
+    chain_errors = check_tag_chains(skel.GetJointsAttr().Get(), tags)
+    if chain_errors:
+        raise ExamError(f"human {human_id}: tagged joints do not form chains ({'; '.join(chain_errors)}). A forearm "
+                        f"bone outside the arm chain means the human was built before mpfb-humans "
+                        f"skeleton.zanatomy.rig_parent_overrides: rebuild the humans")
     rig = RetargetRig(ISAAC.get("motion_library_rig", "Human"))
     rig.set_skeleton(skel)
     rig.set_joint_mappings(tags)
-    set_up_axis(skel, JOB.get("up_axis", "Z"))
-    set_forward_axis(skel, JOB.get("forward_axis", "MINUS Y"))
+    set_up_axis(skel, block.get("up_axis", "Z"))
+    set_forward_axis(skel, block.get("forward_axis", "MINUS Y"))
     if not rig.auto_setup(use_mapping=False, auto_facing=False, auto_tagging=False, auto_posing=True):
         raise ExamError(f"human {human_id}: retarget set-up (retarget pose) failed")
     mapped = rig.get_tag_joint_mapping()
@@ -334,14 +347,6 @@ def retarget(skel, human_id: str) -> None:
     set_tpose_retarget_pose(skel, tags, str(template), human_id)
 
 
-# Tagged segments whose direction is matched to the reference rig's T-pose (parent before child).
-# Spine and neck stay as authored: MPFB's are upright like the reference, and re-aiming them tilts the head back.
-TPOSE_SEGMENTS = [
-    seg for s in ("Left", "Right") for seg in (
-        (f"{s}Shoulder", f"{s}Arm"), (f"{s}Arm", f"{s}ForeArm"), (f"{s}ForeArm", f"{s}Hand"),
-        (f"{s}Hand", f"{s}HandMiddle2"), (f"{s}Leg", f"{s}Shin"), (f"{s}Shin", f"{s}Foot"), (f"{s}Foot", f"{s}ToeBase"))]
-
-
 def _skel_fk(local, parents):
     world = [None] * len(local)
     for i, parent in enumerate(parents):
@@ -350,7 +355,7 @@ def _skel_fk(local, parents):
 
 
 def _reference_tag_positions(template: str) -> dict:
-    """Tag -> rest position of the retarget rig's reference skeleton (a T-pose), in the MPFB frame (Z up, -Y front)."""
+    """Tag -> rest position of the retarget rig's reference skeleton (a T-pose), in the human frame (Z up, -Y front)."""
     ref_stage = Usd.Stage.Open(template)
     ref = next(UsdSkel.Skeleton(p) for p in ref_stage.Traverse() if p.IsA(UsdSkel.Skeleton))
     joints = list(ref.GetJointsAttr().Get())
@@ -365,8 +370,8 @@ def _reference_tag_positions(template: str) -> dict:
     leaf_index = {j.split("/")[-1]: i for i, j in enumerate(joints)}
     pos = {tag: world[leaf_index[j]].ExtractTranslation() for tag, j in tag_to_joint.items() if j in leaf_index}
     y_up = UsdGeom.GetStageUpAxis(ref_stage) == UsdGeom.Tokens.y
-    to_mpfb = (lambda v: Gf.Vec3d(v[0], -v[2], v[1])) if y_up else (lambda v: Gf.Vec3d(v))
-    out = {tag: to_mpfb(v) for tag, v in pos.items()}
+    to_human = (lambda v: Gf.Vec3d(v[0], -v[2], v[1])) if y_up else (lambda v: Gf.Vec3d(v))
+    out = {tag: to_human(v) for tag, v in pos.items()}
     if out["LeftToeBase"][1] > out["LeftFoot"][1]:      # toes must point to the front (-Y); flip if the rig faces -Z
         out = {tag: Gf.Vec3d(v[0], -v[1], v[2]) for tag, v in out.items()} if y_up else out
     if out["LeftArm"][0] < out["RightArm"][0]:           # patient's left = +X
@@ -375,10 +380,11 @@ def _reference_tag_positions(template: str) -> dict:
 
 
 def set_tpose_retarget_pose(skel, tags: dict, template: str, human_id: str) -> None:
-    """MPFB humans rest in an A-pose (arms ~45 deg down, forearms angled forward); the motion library's reference rig
-    is a T-pose, and the retargeter's auto-posing leaves MPFB unchanged, so every motion would be transferred relative
-    to the wrong posture (raised, bent forearms). Author the retarget pose (controlRig:retargetTransforms) ourselves:
-    rotate each tagged segment onto the reference T-pose direction and roll the hands to the same palm orientation."""
+    """The humans rest in an A-pose (arms ~45-50 deg down, forearms angled forward; MPFB and Z-Anatomy rigs alike); the
+    motion library's reference rig is a T-pose, and the retargeter's auto-posing leaves the human unchanged, so every
+    motion would be transferred relative to the wrong posture (raised, bent forearms). Author the retarget pose
+    (controlRig:retargetTransforms) ourselves: rotate each tagged segment onto the reference T-pose direction and roll
+    the hands to the same palm orientation. Works on tags only, so it serves every rig."""
     ref = _reference_tag_positions(template)
     joints = list(skel.GetJointsAttr().Get())
     parents = list(UsdSkel.Topology(joints).GetParentIndices())
@@ -765,15 +771,116 @@ def update_sd_info(visit: dict, status: str, error: str = None) -> None:
     sdmod.write_json(path, info)
 
 
+class PoseReader:
+    """World matrices of the patient's joints as animated right now (all joints, not only the retarget tags).
+
+    The agent API (get_joint_index / get_joint_world_transform) knows the retarget tags only, so untagged joints
+    (vertebrae, scapula) are read like NVIDIA's own behavior tests do (omni.anim.behavior.core
+    tests/ragdoll_helpers.py): through usdrt (Fabric), each joint's local transform from the SkelAnimation that drives
+    the skeleton (rest transform for joints it does not drive), composed down the joint paths and premultiplied by the
+    SkelRoot's Fabric world matrix."""
+
+    def __init__(self, skelroot: Sdf.Path, joints_needed, agent):
+        import usdrt
+        from usdrt import hierarchy as rt_hierarchy
+        self.usdrt, self.rt_hierarchy = usdrt, rt_hierarchy
+        self.rt = usdrt.Usd.Stage.Attach(omni.usd.get_context().get_stage_id())
+        self.root_path, self.agent = str(skelroot), agent
+        root = self.rt.GetPrimAtPath(usdrt.Sdf.Path(self.root_path))
+        queue, self.skel_prim = [root], None
+        while queue and self.skel_prim is None:
+            prim = queue.pop(0)
+            if prim.GetTypeName() == "Skeleton":
+                self.skel_prim = prim
+            queue.extend(prim.GetChildren())
+        if self.skel_prim is None:
+            raise ExamError(f"annotations: no Skeleton under {self.root_path} in Fabric")
+        skel = usdrt.UsdSkel.Skeleton(self.skel_prim)
+        self.joints = [str(j) for j in skel.GetJointsAttr().Get()]
+        self.rest = list(skel.GetRestTransformsAttr().Get())
+        by_leaf = {j.split("/")[-1]: i for i, j in enumerate(self.joints)}
+        missing = [j for j in joints_needed if j not in by_leaf]
+        if missing:
+            raise ExamError(f"annotations: joints {', '.join(missing)} not in the patient skeleton")
+        self.needed = {j: by_leaf[j] for j in joints_needed}
+        by_path = {j: i for i, j in enumerate(self.joints)}
+        self.parent = [by_path.get(j.rsplit("/", 1)[0], -1) if "/" in j else -1 for j in self.joints]
+        self.checked = False
+
+    @staticmethod
+    def _m(value) -> Gf.Matrix4d:
+        return value if isinstance(value, Gf.Matrix4d) else Gf.Matrix4d(*[float(value[r][c]) for r in range(4) for c in range(4)])
+
+    def _anim(self):
+        rel = self.usdrt.UsdSkel.BindingAPI(self.skel_prim).GetAnimationSourceRel()
+        targets = rel.GetTargets() if rel else []
+        if not targets:
+            return {}, None, None
+        anim = self.usdrt.UsdSkel.Animation(self.rt.GetPrimAtPath(targets[0]))
+        by_path = {j: i for i, j in enumerate(self.joints)}
+        index = {by_path[str(j)]: a for a, j in enumerate(anim.GetJointsAttr().Get() or []) if str(j) in by_path}
+        return index, anim.GetTranslationsAttr().Get(), anim.GetRotationsAttr().Get()
+
+    def read(self) -> dict:
+        """{joint leaf name: world Gf.Matrix4d} of the needed joints (stage units, row vectors)."""
+        index, tr, rot = self._anim()
+        local_cache, world_cache = {}, {}
+
+        def local(i):
+            if i not in local_cache:
+                a = index.get(i, -1)
+                if a >= 0 and tr is not None:
+                    q, t = rot[a], tr[a]
+                    im = q.GetImaginary()
+                    m = Gf.Matrix4d(1.0)
+                    m.SetRotateOnly(Gf.Quatd(float(q.GetReal()), Gf.Vec3d(float(im[0]), float(im[1]), float(im[2]))))
+                    m.SetTranslateOnly(Gf.Vec3d(float(t[0]), float(t[1]), float(t[2])))
+                    local_cache[i] = m
+                else:
+                    local_cache[i] = self._m(self.rest[i])
+            return local_cache[i]
+
+        def skel_space(i):
+            if i not in world_cache:
+                world_cache[i] = local(i) * skel_space(self.parent[i]) if self.parent[i] >= 0 else local(i)
+            return world_cache[i]
+
+        self.rt_hierarchy.IFabricHierarchy().get_fabric_hierarchy(
+            self.rt.GetFabricId(), self.rt.GetStageIdAsStageId()).update_world_xforms()
+        root_world = self._m(self.usdrt.Rt.Xformable(self.rt.GetPrimAtPath(self.usdrt.Sdf.Path(self.root_path)))
+                             .GetFabricHierarchyWorldMatrixAttr().Get())
+        out = {leaf: skel_space(i) * root_world for leaf, i in self.needed.items()}
+        if not self.checked:
+            self.checked = True
+            self._cross_check(out, bool(index))
+        return out
+
+    def _cross_check(self, world: dict, animated: bool) -> None:
+        """First frame: compare with the agent's own joint positions (retarget tags) - a wrong read shows here."""
+        if not animated:
+            say("  warning: annotations: no SkelAnimation bound to the patient skeleton in Fabric; heights use the "
+                "rest pose")
+        pairs = [(j, t) for j, t in (("femur_L", "LeftLeg"), ("skull", "Head")) if j in world]
+        for joint, tag in pairs:
+            i = self.agent.get_joint_index(tag)
+            pos, rot = carb.Float3(0, 0, 0), carb.Float4(0, 0, 0, 1)
+            if i < 0 or not self.agent.get_joint_world_transform(i, pos, rot):
+                continue
+            d = (world[joint].ExtractTranslation() - v3(pos)).GetLength()
+            say(f"  annotations: {joint} vs agent {tag}: {d * 100:.1f} cm" + (" (warning: > 2 cm)" if d > 0.02 else ""))
+
+
 STEP_STATE = {"step": 0, "op": "", "projection": "", "fov": 0}     # current step, for frames.csv
 
 
 class DataCapture:
     """Dataset frames of one visit: <capture dir>/<CAMERA>/RGB/<frame>.png, .../Depth/<frame>.npy|png (metric) and
     .../Depth_Preview/<frame>.png (8-bit, for viewing),
-    plus <capture dir>/frames.csv (frame, simulated time, step, op, projection, FOV light on)."""
+    plus <capture dir>/frames.csv (frame, simulated time, step, op, projection, FOV light on),
+    <capture dir>/annotations/<frame>.json (vertebra, hip and shoulder heights, cm) and, with annotations.overlay,
+    the same points drawn into the RGB images."""
 
-    def __init__(self, stage, visit: dict, cfg: dict, t0: float):
+    def __init__(self, stage, visit: dict, cfg: dict, t0: float, skelroot: Sdf.Path = None, agent=None):
         import csv
         from concurrent.futures import ThreadPoolExecutor
 
@@ -785,6 +892,15 @@ class DataCapture:
         rgb_on, depth_on = (cfg.get("streams") or {}).get("rgb", True), (cfg.get("streams") or {}).get("depth", True)
         self.depth_preview = depth_on and cfg.get("depth_preview", True)
         self.preview_range = [float(v) for v in cfg.get("depth_preview_range_m", [0.3, 8.0])]
+        ann = JOB.get("annotations") or {}
+        self.points = visit["human"].get("annotation_points") or []
+        self.ndigits = int(ann.get("ndigits", 1))
+        self.style = ann.get("overlay") or {}
+        self.json_on = bool(self.points) and bool(ann.get("enabled", True))
+        self.overlay_on = bool(self.points) and bool(self.style.get("enabled", True)) and rgb_on
+        self.pose = PoseReader(skelroot, annotations.joints_needed(self.points), agent) \
+            if (self.json_on or self.overlay_on) else None
+        self.cam_views = {}                       # camera name -> (USD camera prim of its RGB stream, resolution)
         products = {}
 
         def product(path):
@@ -811,6 +927,8 @@ class DataCapture:
                     continue
                 annot = rep.AnnotatorRegistry.get_annotator(annot_name)
                 annot.attach([product(path)])
+                if kind == "RGB" and self.overlay_on:  # view / projection from USD: the camera_params annotator
+                    self.cam_views[cam["name"]] = stage.GetPrimAtPath(path)     # crashes Isaac 6.2 (RTX, GUI)
                 (self.out / cam["name"] / kind).mkdir(parents=True, exist_ok=True)
                 if kind == "Depth" and self.depth_preview:
                     (self.out / cam["name"] / "Depth_Preview").mkdir(parents=True, exist_ok=True)
@@ -826,12 +944,21 @@ class DataCapture:
         self.csv_file = open(self.out / "frames.csv", "w", newline="")
         self.csv = csv.writer(self.csv_file)
         self.csv.writerow(["frame", "time_s", "step", "op", "projection", "fov_light"])
+        if self.json_on:
+            (self.out / "annotations").mkdir(parents=True, exist_ok=True)
         say(f"  capture: {len(self.streams)} streams ({', '.join(f'{n}/{k}' for n, k, _ in self.streams)}) -> {self.out}")
+        say(f"  capture: annotations/<frame>.json {'on' if self.json_on else 'off'}; annotations drawn into RGB: "
+            f"{'on' if self.overlay_on else 'off'}" + ("" if self.points else " (no annotation points for this human)"))
 
-    def _write(self, path, kind, data):
+    def _write_json(self, path, data):
+        path.write_text(json.dumps(data, indent=1))
+
+    def _write(self, path, kind, data, overlay=None):
         from PIL import Image
         if kind == "RGB":
             img = Image.fromarray(np.asarray(data)[:, :, :3])
+            if overlay:                           # (pixels, heights, frame number)
+                annotations.draw_overlay(img, self.points, overlay[0], overlay[1], self.style, overlay[2])
             if self.cfg.get("rgb_format", "png") == "jpg":
                 img.save(path.with_suffix(".jpg"), quality=int(self.cfg.get("jpg_quality", 95)))
             else:
@@ -861,8 +988,23 @@ class DataCapture:
             return
         self.frame += 1                           # frames are numbered without gaps, identical for every camera
         name = f"{self.frame:06d}"
+        values, overlays = None, {}
+        if self.pose:
+            positions = annotations.posed(self.points, self.pose.read())
+            values = annotations.heights(self.points, positions, 0.0, self.ndigits)
+            if self.json_on:
+                rec = annotations.record(self.frame, sim_time() - self.t0, STEP_STATE, values)
+                self.pending.append(self.pool.submit(self._write_json, self.out / "annotations" / f"{name}.json", rec))
+            for cam, kind, data in images:
+                if kind != "RGB" or cam not in self.cam_views:
+                    continue
+                h, w = np.asarray(data).shape[:2]
+                view, proj = _camera_matrices(self.cam_views[cam], w, h)
+                pixels = annotations.project(positions, view, proj, w, h)
+                overlays[cam] = (pixels, values, self.frame)
         for cam, kind, data in images:
-            self.pending.append(self.pool.submit(self._write, self.out / cam / kind / name, kind, np.array(data)))
+            self.pending.append(self.pool.submit(self._write, self.out / cam / kind / name, kind, np.array(data),
+                                                 overlays.get(cam) if kind == "RGB" else None))
         self.csv.writerow([self.frame, f"{sim_time() - self.t0:.4f}", STEP_STATE["step"], STEP_STATE["op"],
                            STEP_STATE["projection"], STEP_STATE["fov"]])
         self.saved += 1
@@ -877,6 +1019,15 @@ class DataCapture:
         self.pool.shutdown(wait=True)
         self.csv_file.close()
         return self.saved
+
+
+def _camera_matrices(prim, width: int, height: int):
+    """(view, projection) Gf row-vector matrices of a USD camera rendered at width x height. RTX keeps the
+    horizontal aperture and derives the vertical one from the image aspect, so the frustum does the same."""
+    cam = UsdGeom.Camera(prim).GetCamera(Usd.TimeCode.Default())
+    cam.verticalAperture = cam.horizontalAperture * height / width
+    frustum = cam.frustum
+    return frustum.ComputeViewMatrix(), frustum.ComputeProjectionMatrix()
 
 
 class DebugCapture:
@@ -1023,7 +1174,7 @@ def run_visit(visit: dict, number: int, total: int) -> None:
     t0 = sim_time()
     data_cap = None
     if (JOB.get("capture") or {}).get("enabled") and visit.get("capture"):
-        data_cap = DataCapture(stage, visit, JOB["capture"], t0)
+        data_cap = DataCapture(stage, visit, JOB["capture"], t0, skelroot, patient.agent)
         FRAME_HOOKS.append(data_cap.on_frame)
     cap_start = (JOB.get("capture") or {}).get("start", "spawn")
     try:

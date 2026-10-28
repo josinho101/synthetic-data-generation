@@ -1,0 +1,82 @@
+# -----------------------------------------------------------------------------
+# Z-Anatomy anatomical rig (mpfb-humans skeleton layer "zanatomy", <id>.json -> skeleton.rig: zanatomy_anatomical)
+# -> Isaac behavior "Human" rig retarget tags (omni.anim.retarget). Picked per human by isaac.retarget_maps.
+# Joint names are the leaf names in the human's UsdSkel skeleton. The humans pipeline already puts the identity
+# joint SkelOrigin at the top (the retargeter needs Hips below a root joint, the behavior system the root at the
+# origin).
+#
+# Untagged joints keep their rest pose relative to their parent: the vertebrae between the tagged levels follow the
+# level below them, the scapula follows the clavicle, the radius the ulna (mpfb-humans rig_parent_overrides puts it
+# under the ulna; with both under the humerus the forearm skin would tear at the elbow - sdg checks this chain).
+# The rig has no eye joints (the eyes are skinned to the skull), so there are no eye tags.
+# -----------------------------------------------------------------------------
+root_joint_name: SkelOrigin
+
+# Skeleton facing (Z up, facing -Y, like the MPFB humans). Set explicitly; never auto-detected.
+up_axis: Z
+forward_axis: MINUS Y
+
+tags:
+  Hips: pelvis
+  Spine1: vertebra_L4          # lower lumbar
+  Spine2: vertebra_L1          # thoracolumbar junction
+  Chest: vertebra_T7           # mid-thoracic; sternum (T4) and the shoulder girdles hang below it
+  Neck1: vertebra_C7
+  Neck2: vertebra_C4
+  Head: skull
+
+  LeftShoulder: clavicle_L
+  LeftArm: humerus_L
+  LeftForeArm: ulna_L
+  LeftHand: carpus_L
+  LeftLeg: femur_L
+  LeftShin: tibia_L
+  LeftFoot: talus_L
+  LeftToeBase: proximal_phalanx3_foot_L
+  LeftHandThumb1: metacarpal1_L
+  LeftHandThumb2: proximal_phalanx1_hand_L
+  LeftHandThumb3: distal_phalanx1_hand_L
+  LeftHandIndex1: metacarpal2_L
+  LeftHandIndex2: proximal_phalanx2_hand_L
+  LeftHandIndex3: middle_phalanx2_hand_L
+  LeftHandIndex4: distal_phalanx2_hand_L
+  LeftHandMiddle1: metacarpal3_L
+  LeftHandMiddle2: proximal_phalanx3_hand_L
+  LeftHandMiddle3: middle_phalanx3_hand_L
+  LeftHandMiddle4: distal_phalanx3_hand_L
+  LeftHandRing1: metacarpal4_L
+  LeftHandRing2: proximal_phalanx4_hand_L
+  LeftHandRing3: middle_phalanx4_hand_L
+  LeftHandRing4: distal_phalanx4_hand_L
+  LeftHandPinky1: metacarpal5_L
+  LeftHandPinky2: proximal_phalanx5_hand_L
+  LeftHandPinky3: middle_phalanx5_hand_L
+  LeftHandPinky4: distal_phalanx5_hand_L
+
+  RightShoulder: clavicle_R
+  RightArm: humerus_R
+  RightForeArm: ulna_R
+  RightHand: carpus_R
+  RightLeg: femur_R
+  RightShin: tibia_R
+  RightFoot: talus_R
+  RightToeBase: proximal_phalanx3_foot_R
+  RightHandThumb1: metacarpal1_R
+  RightHandThumb2: proximal_phalanx1_hand_R
+  RightHandThumb3: distal_phalanx1_hand_R
+  RightHandIndex1: metacarpal2_R
+  RightHandIndex2: proximal_phalanx2_hand_R
+  RightHandIndex3: middle_phalanx2_hand_R
+  RightHandIndex4: distal_phalanx2_hand_R
+  RightHandMiddle1: metacarpal3_R
+  RightHandMiddle2: proximal_phalanx3_hand_R
+  RightHandMiddle3: middle_phalanx3_hand_R
+  RightHandMiddle4: distal_phalanx3_hand_R
+  RightHandRing1: metacarpal4_R
+  RightHandRing2: proximal_phalanx4_hand_R
+  RightHandRing3: middle_phalanx4_hand_R
+  RightHandRing4: distal_phalanx4_hand_R
+  RightHandPinky1: metacarpal5_R
+  RightHandPinky2: proximal_phalanx5_hand_R
+  RightHandPinky3: middle_phalanx5_hand_R
+  RightHandPinky4: distal_phalanx5_hand_R

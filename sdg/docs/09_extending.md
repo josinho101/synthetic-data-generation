@@ -51,10 +51,12 @@ Then check it with `--projections <P> --set isaac.debug_hands=true --set isaac.d
 * **Rooms**: any room from the room pipeline works if its metadata has `anchors.stage.patient_route` (all five steps),
   `detector_normal` and `entrance_door`, and its USD has `Markers/PatientStand` and the collimator `LightWindow`. Rooms
   generated before these fields existed fail with a clear input error.
-* **Humans**: any human from the humans pipeline works: same MPFB skeleton (the retarget map is checked against the
-  real skeleton by a test, and again at run time) and the T7 landmark.
-* **Another skeleton** (e.g. Mixamo or a Reallusion character) needs its own tag map file, `root_joint_name` and
-  axes in `retarget_mpfb.yaml`. The arm poses need no change: they are authored on the motion library rig.
+* **Humans**: any human from the humans pipeline works: Z-Anatomy rig (default) or MPFB rig, picked per human by
+  `<id>.json → skeleton.rig` (the retarget maps are checked against real skeletons by a test, and again at run
+  time), plus the T7 landmark. Annotations need the Z-Anatomy rig.
+* **Another skeleton** (e.g. Mixamo or a Reallusion character): add `configs/retarget_<name>.yaml` (tags,
+  `root_joint_name`, axes), add `"retarget_<name>"` to `CONFIG_FILES` in `sdg_xray/paths.py`, and map the rig id to
+  it in `isaac.retarget_maps`. The arm poses need no change: they are authored on the motion library rig.
 
 ## 9.4 Frame capture (next stage)
 
@@ -80,8 +82,14 @@ simulation times.
 | `test_pose_clip_arms_twist_as_mirror_images` | one idle elbow almost straight: both posed upper arms still twist as mirror images (no wrung shoulder) |
 | `test_pose_config_rejected_when_malformed` | arm pose validation |
 | `test_sd_numbering_and_timeline` | SD numbering, timeline paths and line format |
-| `test_real_inputs_plan` | real latest runs: 2 humans, 1 room, plausible T7 heights |
-| `test_retarget_joints_exist_in_real_human` | every tag in `retarget_mpfb.yaml` exists in a real human skeleton |
+| `test_real_inputs_plan` | real latest runs: 2 humans, 1 room, plausible T7 heights, rig + retarget map + 28 annotation points per Z-Anatomy human |
+| `test_retarget_map_fits_real_human` | per rig (Z-Anatomy, MPFB): the map chosen by `retarget_maps` names joints of the newest real human with that rig, and they form chains |
+| `test_retarget_maps_config` | map selection, default, config errors |
+| `test_tag_chain_check_finds_sibling_forearm` | radius beside the ulna is reported; radius under the ulna passes |
+| `test_annotation_points_on_real_human` | 24 vertebrae + 2 hips + 2 shoulders; C1 → L5 strictly lower; hip < L5 < shoulder < C1; vertebra point = bone mesh centre; a lift moves every height by the same cm; JSON schema |
+| `test_annotations_skip_mpfb_rig` | MPFB-rig humans get no points |
+| `test_annotation_projection_and_overlay` | camera projection (image centre, behind the camera), dot at the projected pixel, nothing drawn off-image, frame number |
+| `test_annotation_config`, `test_no_overlay_flag` | annotation config validation, `--no-overlay` |
 | `test_fov_light_axis_matches_beam` | TubeHead +Y is the room's beam axis |
 | `test_compose_into_in_memory` | the room composes into an in-memory stage, detector height set |
 

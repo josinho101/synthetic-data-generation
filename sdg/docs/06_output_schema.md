@@ -10,6 +10,7 @@ output/sdg/                             run.output_root (default <repo>/output/s
     │   └── CHEST/                      one folder per exam (later SPINE/)
     │       ├── timeline.txt
     │       ├── frames.csv              frame -> simulated time, step, FOV light (doc 10)
+    │       ├── annotations/000001.json …   per frame: vertebra, hip, shoulder heights in cm (doc 10.5)
     │       └── FAR_LEFT/{RGB,Depth,Depth_Preview}/   one folder per recorded camera: RGB/000001.png, … (doc 10)
     └── SD.00002/
         └── ...
@@ -32,11 +33,11 @@ host.
 | `sd` | SD name |
 | `status` | `ok` (every visit ok), `failed`, or `pending` (Isaac did not reach the visit) |
 | `created` | ISO time the SD was created |
-| `human` | `id`, `usd`, `json`, `run` (source paths), `height_cm`, `chest_height_m` (T7, the detector / tube height used) |
+| `human` | `id`, `usd`, `json`, `run` (source paths), `height_cm`, `chest_height_m` (T7, the detector / tube height used), `rig` (`<id>.json → skeleton.rig`), `retarget` (the retarget config used) |
 | `rooms[]` | `id`, `usd`, `run` for each room of the run |
 | `exams` | exam → projections, as run |
 | `isaac_version` | content of Isaac's `VERSION` file |
-| `capture` | `groups` (e.g. `{"side": "LEFT"}`: the camera this SD records from each camera group, used to balance the dataset across runs), `cameras` (folder names), `fps` (captured images per second), `sim_fps` (`isaac.fps`), `every_n_frames` (`sim_fps / fps`); `null` with `--no-capture` |
+| `capture` | `groups` (e.g. `{"side": "LEFT"}`: the camera this SD records from each camera group, used to balance the dataset across runs), `cameras` (folder names), `fps` (captured images per second), `sim_fps` (`isaac.fps`), `every_n_frames` (`sim_fps / fps`), `annotations` (annotation JSON written), `overlay` (`true`: the RGB images have the annotations drawn in, they are not clean); `null` with `--no-capture` |
 | `visits` | `"<EXAM>/<room id>"` → `status` (`ok` / `failed` / `pending`), `timeline` (path), `finished` (ISO time), `error` (message, when failed) |
 
 Example:

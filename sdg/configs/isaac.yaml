@@ -14,12 +14,16 @@ debug_capture_every_step: false                # with debug_capture_dir: also ca
 debug_capture_every_n_frames: 0                # with debug_capture_dir: > 0 saves every n-th frame of the whole visit (all cameras)
 hide_body_under_clothes: true                  # remove body faces fully covered by garments, so skin cannot poke through the clothes
 clothing_reach_m: 0.07                         # skin counts as covered when cloth lies within this distance outside it (loose sleeves ~5-6 cm)
-hide_anatomy: true                             # hide the bone_* anatomical skeleton meshes (rigidly skinned, they poke through the skin in arm poses)
+hide_anatomy: true                             # hide the bone_* / teeth_* skeleton meshes (rigidly skinned, they poke through the skin in arm poses)
 startup_timeout_s: 600                        # Isaac start-up + asset loading
 run_timeout_s: 3600                            # whole run
 
 # Behavior system (Isaac 6.x omni.anim.behavior): NVIDIA's human motion library, retargeted at runtime onto
-# the MPFB rig with the tag map in retarget_mpfb.yaml.
+# each human's rig with the tag map of its rig.
+# Rig id (<id>.json -> skeleton.rig) -> retarget config (configs/<name>.yaml); `default` for any other rig.
+retarget_maps:
+  zanatomy_anatomical: retarget_zanatomy       # mpfb-humans skeleton layer "zanatomy" (anatomical joint names)
+  default: retarget_mpfb                       # MPFB default rig (layers "procedural" / "none", older humans)
 motion_library: https://omniverse-content-staging.s3.us-west-2.amazonaws.com/Assets/Behavior/110.0/Samples/Assets/MotionLibrary/Human/HumanMotionLibrary.usd
 motion_library_rig: Human
 # Idle variations the agent may play while standing. Isaac's default set also has IdleTired (stooped), IdleGroove,

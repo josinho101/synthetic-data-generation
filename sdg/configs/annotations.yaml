@@ -1,0 +1,38 @@
+# -----------------------------------------------------------------------------
+# Anatomy annotations of every captured frame (only while capturing; needs the Z-Anatomy rig).
+#
+#   <SD>/<EXAM>/annotations/<frame>.json   heights in cm above the room floor, same <frame> number (000001 ...) as
+#                                          <CAMERA>/RGB/<frame>.png, Depth/<frame>.png and frames.csv
+#   overlay                                the same points drawn into every RGB image (switch off for clean images)
+#
+# Points move with the animated skeleton:
+#   vertebrae  mid-point of each vertebra = bounding-box centre of its Z-Anatomy bone mesh (<mesh_prefix><level>),
+#              rigid to the joint vertebra_<level>
+#   landmarks  a point of <id>.json -> anatomy.points_m (fitted bony landmark, metres), rigid to `joint`
+# Humans with another rig (MPFB) have no vertebra bones: they get no annotations (a warning per human).
+# -----------------------------------------------------------------------------
+enabled: true                     # write annotations/<frame>.json
+ndigits: 1                        # cm decimals
+vertebrae: [C1, C2, C3, C4, C5, C6, C7, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, L1, L2, L3, L4, L5]
+mesh_prefix: bone_vertebra_       # bone mesh of vertebra <level>: <mesh_prefix><level>, joint vertebra_<level>
+landmarks:
+  hip:                            # greater trochanter
+    left:  {point: greater_trochanter_l, joint: femur_L}
+    right: {point: greater_trochanter_r, joint: femur_R}
+  shoulder:                       # acromion
+    left:  {point: acromion_l, joint: scapula_L}
+    right: {point: acromion_r, joint: scapula_R}
+
+# Drawn into RGB/<frame>.png|jpg. With the overlay on, the RGB images are NOT clean training images.
+# Off: --no-overlay or --set annotations.overlay.enabled=false (the JSON files are still written).
+overlay:
+  enabled: true
+  marker_radius_px: 4             # at 720 px image height; scaled with the image height
+  font_size_px: 14                # at 720 px image height; scaled with the image height
+  label_vertebrae: all            # all | every_2nd (every vertebra gets a dot either way)
+  frame_number: true              # "frame 000123" in the top-left corner
+  colors:                         # RGB 0-255; every marker and label has a dark outline
+    vertebrae: [255, 215, 0]
+    hip: [0, 200, 255]
+    shoulder: [255, 80, 200]
+    text: [255, 255, 255]

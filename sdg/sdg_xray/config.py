@@ -116,16 +116,27 @@ def validate(cfg: dict) -> list:
     if cfg["capture"].get("enabled"):
         from .capture import validate_capture
         errors += validate_capture(cfg["capture"], float(isaac.get("fps", 30)))
-    retarget = cfg["retarget_mpfb"]
-    if not (retarget.get("tags") or {}):
-        errors.append("retarget_mpfb.tags is empty")
-    if str(retarget.get("root_joint_name", "SkelOrigin")).lower() == "root":
-        errors.append("retarget_mpfb.root_joint_name must differ from MPFB's 'root' (case-insensitive)")
+    maps = isaac.get("retarget_maps") or {}
+    if not isinstance(maps, dict) or "default" not in maps:
+        errors.append("isaac.retarget_maps must map rig ids (<id>.json skeleton.rig) to retarget configs, with a default")
+        maps = {}
+    for rig, name in maps.items():
+        if not str(name).startswith("retarget_") or name not in cfg:
+            errors.append(f"isaac.retarget_maps.{rig}: {name!r} is not a loaded retarget_*.yaml config")
+    for name in sorted(k for k in cfg if k.startswith("retarget_")):
+        retarget = cfg[name]
+        if not (retarget.get("tags") or {}):
+            errors.append(f"{name}.tags is empty")
+        if str(retarget.get("root_joint_name", "SkelOrigin")).lower() == "root":
+            errors.append(f"{name}.root_joint_name must differ from MPFB's 'root' (case-insensitive)")
+    from .annotations import validate_annotations
+    errors += validate_annotations(cfg["annotations"])
     return errors
 
 
 def load_config(config_dir, overrides=None) -> dict:
-    """Return {"run": {...}, "sequence": {...}, "poses": {...}, "isaac": {...}, "retarget_mpfb": {...}}."""
+    """Return {"run": {...}, "sequence": {...}, "poses": {...}, "isaac": {...}, "retarget_mpfb": {...}, ...}: one entry
+    per file of CONFIG_FILES."""
     config_dir = Path(config_dir)
     missing = [f"{name}.yaml" for name in CONFIG_FILES if not (config_dir / f"{name}.yaml").exists()]
     if missing:

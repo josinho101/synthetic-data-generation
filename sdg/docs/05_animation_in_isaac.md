@@ -24,13 +24,30 @@ A new in-memory stage (Z up, meters) is created for every visit:
 | `/World/OutsideFloor` | mesh with a collider | walkable ground outside the suite (the NavMesh is baked from collision geometry) |
 | `…/TubeHead/FOVLight` | `UsdLux.RectLight` + `ShapingAPI` | collimator field light ([5.7](#57-fov-light)) |
 
-## 5.3 Making the MPFB human a behavior agent
+## 5.3 Making the human a behavior agent
 
-The synthetic humans use the MPFB default rig (247 joints, including `LM_*` landmark joints and face joints). The
-motion library is authored for NVIDIA's "Human" rig (81 joints, T-pose). Six steps make them compatible. They work on
-the in-memory stage only; the human USD is not changed.
+The synthetic humans come with one of two rigs, recorded in `<id>.json → skeleton.rig`:
 
-1. **Identity root joint.** MPFB's top joint `root` sits at the pelvis (about 0.88 m). The retargeter needs the
+| Rig | Humans | Joints | Retarget map |
+|---|---|---|---|
+| `zanatomy_anatomical` | mpfb-humans skeleton layer `zanatomy` (default since 2026-10-28) | `SkelOrigin` + 156 Z-Anatomy bones (`pelvis`, `vertebra_L5 … C1`, `skull`, `clavicle_L`, `scapula_L`, `humerus_L`, `ulna_L`, `radius_L`, `carpus_L`, `femur_L`, …) | `retarget_zanatomy.yaml` |
+| `mpfb_default` | layers `procedural` / `none`, older humans | MPFB default rig (247 joints, including `LM_*` landmark and face joints) | `retarget_mpfb.yaml` |
+
+`isaac.retarget_maps` picks the map per human. The motion library is authored for NVIDIA's "Human" rig (81 joints,
+T-pose). The steps below make a human compatible. They work on the in-memory stage only; the human USD is not changed.
+
+**Z-Anatomy specifics.**
+- The retarget drives only tagged joints. Untagged ones keep their rest pose relative to their parent, so the
+  bending is concentrated at the tagged vertebrae: L4, L1, T7, C7, C4 and the skull.
+- The scapula follows the clavicle.
+- The radius follows the ulna. mpfb-humans `rig_parent_overrides` puts it under the ulna. With radius and ulna both
+  under the humerus, one forearm tag cannot bend both, and the forearm skin would tear at the elbow.
+- Before the retarget, sdg checks that the tagged joints form chains down the skeleton (`sdg_xray/rig.py`), and stops
+  with "rebuild the humans" if not.
+- There are no eye tags: the eyes are skinned to the skull.
+
+1. **Identity root joint.** Current humans already have `SkelOrigin` at the top, so nothing is inserted. For
+   older MPFB humans: MPFB's top joint `root` sits at the pelvis (about 0.88 m). The retargeter needs the
    `Hips` tag *below* a root joint, and the behavior system needs the skeleton root at the origin. So a joint
    `SkelOrigin` with an identity transform is inserted above it. The script updates the joint list, bind and rest
    transforms, `primvars:blender:bone_lengths`, and every skinned mesh's `skel:joints`.
@@ -39,13 +56,13 @@ the in-memory stage only; the human USD is not changed.
    skeleton ("RetargetController: Invalid input skeletons").
 2. **Behavior agent.** The SkelRoot gets the `BehaviorAgentAPI`, its `behavior:motionLibrary` targets
    `/World/HumanMotionLibrary`, and `NavMeshExcludeAPI` keeps the human out of the NavMesh.
-3. **Retarget.** `RetargetRig("Human")` uses the tag map from `retarget_mpfb.yaml` (63 tags), and the axes are set
-   explicitly to **up Z, forward −Y**. Then `auto_setup(auto_facing=False, auto_tagging=False, auto_posing=True)`
+3. **Retarget.** `RetargetRig("Human")` uses the tag map of the human's rig (`retarget_zanatomy.yaml`, 61 tags, or
+   `retarget_mpfb.yaml`, 63 tags), and the axes are set explicitly to **up Z, forward −Y**. Then `auto_setup(auto_facing=False, auto_tagging=False, auto_posing=True)`
    prepares the rig. Isaac's automatic facing picks +Y forward for MPFB, which flips the character for the
    behavior system (negative agent height). Automatic tagging does not know MPFB joint names and can crash Isaac.
 4. **Retarget pose = the reference T-pose.** Motions are transferred relative to each rig's *retarget pose*, so both
-   rigs must stand in the same posture there. The reference rig stands in a T-pose. MPFB humans rest in an A-pose
-   (arms about 45° down, forearms angled forward), and Isaac's auto-posing leaves that unchanged. Every motion then
+   rigs must stand in the same posture there. The reference rig stands in a T-pose. The humans rest in an A-pose
+   (arms about 45° down, forearms angled forward; the Z-Anatomy rig about 50°), and Isaac's auto-posing leaves that unchanged. Every motion then
    came out with raised, bent forearms (idle "presenting" arms). The script therefore authors
    `controlRig:retargetTransforms` itself:
    * it reads the reference skeleton (`omni.anim.retarget.core/data/rigs/Human/assets/human_skeleton.usd`; joint
@@ -66,7 +83,8 @@ the in-memory stage only; the human USD is not changed.
    covered. Body faces whose vertices are all covered are removed from the body mesh, with their face-varying UVs,
    in the in-memory stage. This is MakeHuman's delete-group idea. Skin at hems, collars and sleeve openings stays. Log:
    `4195/13378 body faces under clothing hidden (…)`.
-5. **Anatomy hidden.** The humans carry a schematic anatomical skeleton (`bone_*` meshes, about 80 bones) for later
+5. **Anatomy hidden.** The humans carry an anatomical skeleton (Z-Anatomy: 158 `bone_*` / `teeth_*` meshes with
+   purpose `guide`; older humans: about 80 schematic `bone_*` meshes) for later
    X-ray-style use. The bones are skinned rigidly to single joints while the skin deforms smoothly, so at raised arms
    they poke through the shoulders and armpits. They are made invisible (`isaac.hide_anatomy: true`).
 
@@ -141,7 +159,7 @@ The clips are generated at the start of each run by `sdg_xray/pose_clips.py`:
    library skeleton, **before Play**, when the agent reads its actions. Nothing is written to Isaac's user
    custom-action folder.
 5. The agent plays a pose with `custom_action(action, duration)`. The behavior system retargets it onto the MPFB
-   patient through the retarget pose of [5.3](#53-making-the-mpfb-human-a-behavior-agent), so the pose scales with
+   patient through the retarget pose of [5.3](#53-making-the-human-a-behavior-agent), so the pose scales with
    the body.
 
 **Check.** After the blend-in, and again when the FOV light goes on, each wrist's offset from the anchor joint (`Head`

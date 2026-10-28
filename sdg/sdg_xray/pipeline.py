@@ -13,6 +13,7 @@ from .config import ConfigError
 from .launcher import isaac_python, isaac_version, run_isaac
 from .paths import COMPOSE_SCENE, DEFAULT_HUMANS_ROOT, DEFAULT_OUTPUT_ROOT, DEFAULT_ROOMS_ROOT
 from .sources import resolve_run, select_items
+from .rig import retarget_for, rig_id
 from .visit import chest_height, describe, load_json, plan_visit
 
 log = logging.getLogger(__name__)
@@ -34,6 +35,8 @@ def build_jobs(cfg: dict) -> dict:
         for exam, projections in run["exams"].items():
             plans[(room["id"], exam)] = plan_visit(room_meta[room["id"]], projections, cfg)
 
+    ann = cfg["annotations"]
+    annotate = bool(ann.get("enabled", True)) and bool(cfg["capture"].get("enabled"))
     subjects = []
     for human in humans:
         meta = load_json(human["json"])
@@ -41,9 +44,40 @@ def build_jobs(cfg: dict) -> dict:
         if height is None:
             raise ConfigError(f"human {human['id']}: no T7 / chest landmarks in {human['json']}")
         garments = [i.get("asset") for i in (meta.get("clothing") or {}).get("items", []) if i.get("asset")]
+        rig = rig_id(meta)
+        retarget = retarget_for(cfg, rig)
+        log.info("Human %s: rig %s -> %s.yaml", human["id"], rig, retarget["config"])
+        points = _annotation_points(human, meta, ann) if annotate else []
         subjects.append(dict(human, chest_height_m=round(height, 4), height_cm=(meta.get("body") or {}).get("height_cm"),
-                             clothing=garments))
+                             clothing=garments, rig=rig, retarget=retarget, annotation_points=points))
     return {"humans_run": str(humans_run), "rooms_run": str(rooms_run), "humans": subjects, "rooms": rooms, "plans": plans}
+
+
+def _overlay_on(cfg: dict) -> bool:
+    return bool((cfg["annotations"].get("overlay") or {}).get("enabled", True))
+
+
+def _annotation_points(human: dict, meta: dict, ann: dict) -> list:
+    """Annotation points of one human (annotations.py); logs its rest heights. [] with a warning for other rigs."""
+    try:
+        from .annotations import build_points, heights, posed
+        from pxr import Gf, Usd, UsdSkel
+    except ImportError as exc:
+        raise ConfigError(f"annotations need usd-core on the host (pip install -r requirements.txt): {exc}")
+    points = build_points(human["usd"], meta, ann)
+    if not points:
+        log.warning("Human %s: no vertebra bones (rig %s): no annotations for this human", human["id"], rig_id(meta))
+        return []
+    stage = Usd.Stage.Open(human["usd"])
+    skel = next(UsdSkel.Skeleton(p) for p in stage.Traverse() if p.IsA(UsdSkel.Skeleton))
+    bind = {str(j).split("/")[-1]: Gf.Matrix4d(m) for j, m in zip(skel.GetJointsAttr().Get(),
+                                                                  skel.GetBindTransformsAttr().Get())}
+    rest = heights(points, posed(points, bind), ndigits=int(ann.get("ndigits", 1)))
+    v = rest.get("vertebrae", {})
+    log.info("Human %s: %d annotation points; rest heights cm: C7 %s, T7 %s, L5 %s, hip %s / %s, shoulder %s / %s",
+             human["id"], len(points), v.get("C7"), v.get("T7"), v.get("L5"),
+             *(rest.get(g, {}).get(s) for g in ("hip", "shoulder") for s in ("left", "right")))
+    return points
 
 
 def _visits(cfg, jobs, sd_names, output_root):
@@ -101,6 +135,8 @@ def run_pipeline(cfg: dict, dry_run: bool = False, verbose: bool = False) -> int
             v["capture"] = dict(capture_by_sd[v["sd"]], dir=str(Path(v["timeline"]).parent))
         need, free = capture_disk_estimate(cfg, visits), shutil.disk_usage(output_root).free
         log.info("Capture: about %.1f GB for %d visit(s), %.1f GB free on %s", need / 1e9, len(visits), free / 1e9, output_root)
+        log.info("Capture: annotations/<frame>.json %s; annotations drawn into RGB: %s",
+                 "on" if cfg["annotations"].get("enabled", True) else "off", "on" if _overlay_on(cfg) else "off")
         if need * 1.15 > free:
             log.error("[ERROR] not enough disk space for the capture: need about %.1f GB, %.1f GB free. Lower "
                       "capture.fps, use fewer cameras / streams, or free space", need / 1e9, free / 1e9)
@@ -108,23 +144,24 @@ def run_pipeline(cfg: dict, dry_run: bool = False, verbose: bool = False) -> int
     for human, sd_name in zip(jobs["humans"], sd_names):
         sdmod.write_json(run_dir / sd_name / "sd_info.json", {
             "sd": sd_name, "run": run_dir.name, "status": "pending", "created": sdmod.now_iso(),
-            "human": {k: human[k] for k in ("id", "usd", "json", "run", "height_cm", "chest_height_m")},
+            "human": dict({k: human[k] for k in ("id", "usd", "json", "run", "height_cm", "chest_height_m", "rig")},
+                          retarget=human["retarget"]["config"]),
             "rooms": [{k: r[k] for k in ("id", "usd", "run")} for r in jobs["rooms"]],
             "exams": cfg["run"]["exams"], "isaac_version": isaac_version(cfg["isaac"]),
             "capture": ({"groups": capture_by_sd[sd_name]["groups"],
                          "cameras": [c["name"] for c in capture_by_sd[sd_name]["cameras"]],
                          "fps": cfg["isaac"].get("fps", 30) / every_n_frames(cfg),
-                         "sim_fps": cfg["isaac"].get("fps", 30), "every_n_frames": every_n_frames(cfg)}
+                         "sim_fps": cfg["isaac"].get("fps", 30), "every_n_frames": every_n_frames(cfg),
+                         # annotations/<frame>.json written; overlay: the RGB images have the points drawn in
+                         "annotations": bool(human["annotation_points"]),
+                         "overlay": bool(human["annotation_points"]) and _overlay_on(cfg)}
                         if sd_name in capture_by_sd else None),
             "visits": {f"{v['exam']}/{v['room']['id']}": {"status": "pending", "timeline": v["timeline"]}
                        for v in visits if v["sd"] == sd_name},
         })
         log.info("%s <- human %s", sd_name, human["id"])
 
-    job = {"isaac": cfg["isaac"], "sequence": cfg["sequence"], "retarget_tags": cfg["retarget_mpfb"]["tags"],
-           "root_joint_name": cfg["retarget_mpfb"].get("root_joint_name", "SkelOrigin"),
-           "up_axis": cfg["retarget_mpfb"].get("up_axis", "Z"),
-           "forward_axis": cfg["retarget_mpfb"].get("forward_axis", "MINUS Y"),
+    job = {"isaac": cfg["isaac"], "sequence": cfg["sequence"], "annotations": cfg["annotations"],
            "compose_scene": str(COMPOSE_SCENE), "visits": visits,
            "capture": cfg["capture"], "arm_poses": cfg["poses"]["arm_poses"], "timing": cfg["poses"].get("timing") or {},
            "debug_hands": bool(cfg["isaac"].get("debug_hands", False))}

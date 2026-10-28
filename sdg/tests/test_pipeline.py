@@ -227,21 +227,171 @@ def test_real_inputs_plan(cfg):
     assert len(jobs["humans"]) == 2 and len(jobs["rooms"]) == 1
     for human in jobs["humans"]:
         assert 0.9 < human["chest_height_m"] < 1.6
+        assert human["retarget"]["tags"] and human["rig"]
+        if human["rig"] == "zanatomy_anatomical":
+            assert human["retarget"]["config"] == "retarget_zanatomy" and len(human["annotation_points"]) == 28
     for steps in jobs["plans"].values():
         assert steps[0]["op"] == "spawn"
 
 
-@pytest.mark.skipif(not any(DEFAULT_HUMANS_ROOT.glob("run-*")), reason="no generated humans")
-def test_retarget_joints_exist_in_real_human(cfg):
+def _latest_human(rig: str):
+    """(usd, meta) of the first human with this skeleton.rig in the newest finished humans run that has one."""
+    for run in sorted(DEFAULT_HUMANS_ROOT.glob("run-*"), reverse=True):
+        if not (run / "results.json").exists():
+            continue
+        for meta_path in sorted(run.glob("humans/*/*.json")):
+            meta = json.loads(meta_path.read_text())
+            if (meta.get("skeleton") or {}).get("rig", "mpfb_default") == rig:
+                return str(meta_path.with_suffix(".usd")), meta
+    return None
+
+
+@pytest.mark.parametrize("rig", ["zanatomy_anatomical", "mpfb_default"])
+def test_retarget_map_fits_real_human(cfg, rig):
+    """The rig's retarget map (isaac.retarget_maps) names existing joints that form chains down the skeleton."""
+    pytest.importorskip("pxr")
+    from pxr import Usd, UsdSkel
+
+    from sdg_xray.rig import check_tag_chains, retarget_for
+    found = _latest_human(rig)
+    if not found:
+        pytest.skip(f"no generated human with rig {rig}")
+    stage = Usd.Stage.Open(found[0])
+    skel = next(UsdSkel.Skeleton(p) for p in stage.Traverse() if p.IsA(UsdSkel.Skeleton))
+    block = retarget_for(cfg, rig)
+    assert block["config"] == ("retarget_zanatomy" if rig == "zanatomy_anatomical" else "retarget_mpfb")
+    assert check_tag_chains(skel.GetJointsAttr().Get(), block["tags"]) == []
+
+
+def test_retarget_maps_config(cfg):
+    from sdg_xray.rig import retarget_for, rig_id
+    assert retarget_for(cfg, "zanatomy_anatomical")["tags"]["LeftForeArm"] == "ulna_L"
+    assert retarget_for(cfg, "something_else")["config"] == "retarget_mpfb"          # default
+    assert rig_id({}) == "default" and rig_id({"skeleton": {"rig": "zanatomy_anatomical"}}) == "zanatomy_anatomical"
+    assert "LeftEye" not in cfg["retarget_zanatomy"]["tags"]
+    with pytest.raises(ConfigError, match="retarget_maps"):
+        load_config(CONFIG_DIR, {"isaac.retarget_maps": {"zanatomy_anatomical": "retarget_zanatomy"}})  # no default
+    with pytest.raises(ConfigError, match="not a loaded"):
+        load_config(CONFIG_DIR, {"isaac.retarget_maps.default": "retarget_nope"})
+
+
+def test_tag_chain_check_finds_sibling_forearm():
+    """ulna and radius both under the humerus (humans built before rig_parent_overrides): the hand is not below the
+    tagged forearm, so elbow motion would not reach it."""
+    from sdg_xray.rig import check_tag_chains
+    base = "SkelOrigin/pelvis/vertebra_T7/clavicle_L/humerus_L"
+    joints = ["SkelOrigin", "SkelOrigin/pelvis", "SkelOrigin/pelvis/vertebra_T7", "SkelOrigin/pelvis/vertebra_T7/clavicle_L",
+              base, f"{base}/ulna_L", f"{base}/radius_L", f"{base}/radius_L/carpus_L"]
+    tags = {"Hips": "pelvis", "Chest": "vertebra_T7", "LeftShoulder": "clavicle_L", "LeftArm": "humerus_L",
+            "LeftForeArm": "ulna_L", "LeftHand": "carpus_L"}
+    errors = check_tag_chains(joints, tags)
+    assert len(errors) == 1 and "LeftHand (carpus_L) is not below LeftForeArm (ulna_L)" in errors[0]
+    fixed = joints[:6] + [f"{base}/ulna_L/radius_L", f"{base}/ulna_L/radius_L/carpus_L"]
+    assert check_tag_chains(fixed, tags) == []
+    assert check_tag_chains(fixed, dict(tags, Head="skull")) == ["Head: joint 'skull' is not in the skeleton"]
+
+
+# ----------------------------------------------------------------------------------------------------- annotations
+def test_annotation_points_on_real_human(cfg):
     pytest.importorskip("pxr")
     from pxr import Gf, Usd, UsdGeom, UsdSkel
-    run = resolve_run(None, "humans", DEFAULT_HUMANS_ROOT)
-    human = select_items(run, "humans", count=1)[0]
-    stage = Usd.Stage.Open(human["usd"])
+
+    from sdg_xray import annotations as an
+    found = _latest_human("zanatomy_anatomical")
+    if not found:
+        pytest.skip("no generated Z-Anatomy human")
+    usd, meta = found
+    points = an.build_points(usd, meta, cfg["annotations"])
+    groups = [p["group"] for p in points]
+    assert groups.count("vertebrae") == 24 and groups.count("hip") == 2 and groups.count("shoulder") == 2
+    stage = Usd.Stage.Open(usd)
     skel = next(UsdSkel.Skeleton(p) for p in stage.Traverse() if p.IsA(UsdSkel.Skeleton))
-    leafs = {j.split("/")[-1] for j in skel.GetJointsAttr().Get()}
-    missing = [j for j in cfg["retarget_mpfb"]["tags"].values() if j not in leafs]
-    assert not missing
+    bind = {str(j).split("/")[-1]: Gf.Matrix4d(m) for j, m in zip(skel.GetJointsAttr().Get(),
+                                                                  skel.GetBindTransformsAttr().Get())}
+    rest = an.posed(points, bind)
+    h = an.heights(points, rest)
+    v = [h["vertebrae"][lv] for lv in cfg["annotations"]["vertebrae"]]
+    assert all(a > b for a, b in zip(v, v[1:]))                      # C1 highest ... L5 lowest
+    for side in ("left", "right"):
+        assert h["hip"][side] < h["vertebrae"]["L5"] < h["shoulder"][side] < h["vertebrae"]["C1"]
+    # vertebra mid-points = bone mesh bounding-box centres (rest pose)
+    t7 = next(p for p in stage.Traverse() if p.GetName() == "bone_vertebra_T7")
+    centre = UsdGeom.Mesh(t7).ComputeLocalBound(0, "guide").ComputeAlignedRange().GetMidpoint()
+    assert (rest[[p["name"] for p in points].index("T7")] - centre).GetLength() < 0.001
+    # a rigid lift of the whole body raises every height by the same amount
+    lift = Gf.Matrix4d(1.0).SetTranslate(Gf.Vec3d(0, 0, 0.1))
+    lifted = an.heights(points, an.posed(points, {k: m * lift for k, m in bind.items()}))
+    assert lifted["vertebrae"]["T7"] == pytest.approx(h["vertebrae"]["T7"] + 10.0, abs=0.11)
+    rec = an.record(7, 1.25, {"step": 3, "op": "walk", "projection": "", "fov": 0}, h)
+    assert rec["frame"] == 7 and rec["image"] == "000007" and rec["units"] == "cm"
+    assert set(rec) == {"frame", "image", "time_s", "step", "op", "projection", "fov_light", "units", "reference",
+                        "vertebrae", "hip", "shoulder"}
+    json.dumps(rec)
+
+
+def test_annotations_skip_mpfb_rig(cfg):
+    pytest.importorskip("pxr")
+    from sdg_xray import annotations as an
+    found = _latest_human("mpfb_default")
+    if not found:
+        pytest.skip("no generated MPFB-rig human")
+    assert an.build_points(found[0], found[1], cfg["annotations"]) == []
+
+
+def _pinhole(width=200, height=100, fov_y_deg=60.0):
+    """Camera at (0, -2, 1) looking along +Y (stage), Z up; Replicator-style row-vector view and projection."""
+    from pxr import Gf
+    cam_world = Gf.Matrix4d(1.0).SetLookAt(Gf.Vec3d(0, -2, 1), Gf.Vec3d(0, 0, 1), Gf.Vec3d(0, 0, 1)).GetInverse()
+    view = cam_world.GetInverse()
+    f = 1.0 / math.tan(math.radians(fov_y_deg) / 2)
+    aspect, near, far = width / height, 0.1, 100.0
+    proj = Gf.Matrix4d(f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) / (near - far), -1,
+                       0, 0, 2 * far * near / (near - far), 0)
+    return view, proj
+
+
+def test_annotation_projection_and_overlay():
+    pytest.importorskip("pxr")
+    pytest.importorskip("PIL")
+    from PIL import Image
+    from pxr import Gf
+
+    from sdg_xray import annotations as an
+    view, proj = _pinhole()
+    (x, y, front), (_, _, behind), (xr, yu, _) = an.project(
+        [Gf.Vec3d(0, 0, 1), Gf.Vec3d(0, -3, 1), Gf.Vec3d(0.2, 0, 1.2)], view, proj, 200, 100)
+    assert front and not behind
+    assert (x, y) == pytest.approx((100, 50), abs=1e-6)              # on the optical axis: image centre
+    assert xr > 100 and yu < 50                                       # +X right, up = smaller row
+    img = Image.new("RGB", (200, 100), (0, 0, 0))
+    points = [{"group": "vertebrae", "name": "T7", "label": "T7"}, {"group": "hip", "name": "left", "label": "Hip L"}]
+    values = {"vertebrae": {"T7": 129.8}, "hip": {"left": 84.2}}
+    style = {"marker_radius_px": 4, "font_size_px": 14, "frame_number": False, "colors": {"vertebrae": [255, 215, 0]}}
+    an.draw_overlay(img, points, [(100.0, 50.0, True), (500.0, 50.0, True)], values, style, 3)
+    assert img.getpixel((100, 50)) == (255, 215, 0)                  # dot at the projected pixel
+    blank = Image.new("RGB", (200, 100), (0, 0, 0))
+    an.draw_overlay(blank, points[1:], [(500.0, 50.0, True)], values, style, 3)
+    assert blank.getbbox() is None                                    # a point outside the image draws nothing
+    an.draw_overlay(blank, [], [], {}, dict(style, frame_number=True), 3)
+    assert blank.getbbox() is not None                                # frame number in the corner
+
+
+def test_annotation_config(cfg):
+    assert cfg["annotations"]["overlay"]["enabled"] is True and cfg["annotations"]["enabled"] is True
+    assert load_config(CONFIG_DIR, {"annotations.overlay.enabled": False})["annotations"]["overlay"]["enabled"] is False
+    with pytest.raises(ConfigError, match="overlay.bogus"):
+        load_config(CONFIG_DIR, {"annotations.overlay.bogus": 1})
+    with pytest.raises(ConfigError, match="label_vertebrae"):
+        load_config(CONFIG_DIR, {"annotations.overlay.label_vertebrae": "some"})
+
+
+def test_no_overlay_flag(monkeypatch):
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import run_pipeline
+    seen = {}
+    monkeypatch.setattr(run_pipeline, "run_pipeline", lambda cfg, **kw: seen.update(cfg=cfg) or 0)
+    assert run_pipeline.main(["--no-overlay", "--dry-run"]) == 0
+    assert seen["cfg"]["annotations"]["overlay"]["enabled"] is False
 
 
 @pytest.mark.skipif(not any(DEFAULT_ROOMS_ROOT.glob("run-*")), reason="no generated rooms")

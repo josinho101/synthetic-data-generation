@@ -50,7 +50,7 @@ This stage captures no images or frames.
 * **Host side** (`sdg_xray/`): pure Python plus `pyyaml`. It is testable without Isaac. It decides *what* happens:
   inputs, route, steps, timings and hand targets.
 * **Isaac side** (`isaac/run_exam.py`): runs inside Isaac Sim's own Python. It decides *how* the motion looks, using
-  Isaac's behavior system (`omni.anim.behavior`): NVIDIA's human motion library retargeted onto the MPFB rig,
+  Isaac's behavior system (`omni.anim.behavior`): NVIDIA's human motion library retargeted onto each human's rig (Z-Anatomy or MPFB),
   NavMesh path finding and hand IK.
 * Both sides exchange a single job JSON (temporary, deleted after the run) and the console lines prefixed `[xray]`.
 * **Nothing is saved as USD.** The stage is built in memory from references to the room and human USDs, and the
@@ -100,5 +100,7 @@ turned −90°, points at the detector. A unit test verifies this.
 | `<human>.json` | `landmarks.T7.rest_position_m` | detector / tube height |
 | | `measurements_cm.jugular_notch_height_cm` / `xiphoid_height_cm` | T7 fallback |
 | | `body.height_cm` | logs, `sd_info.json` |
-| `<human>.usd` | UsdSkel skeleton (MPFB default rig, 247 joints); `bone_*` anatomical skeleton meshes (hidden) | behavior agent |
+| `<human>.json` | `skeleton.rig` | retarget map (`isaac.retarget_maps`) |
+| | `anatomy.points_m.greater_trochanter_l/r`, `acromion_l/r` | hip / shoulder annotation points |
+| `<human>.usd` | UsdSkel skeleton (Z-Anatomy rig: `SkelOrigin` + 156 bones; older humans: MPFB default rig, 247 joints); `bone_*` / `teeth_*` skeleton meshes (hidden; the vertebra meshes give the annotation mid-points) | behavior agent, annotations |
 | human `results.json` | status per id | input selection |

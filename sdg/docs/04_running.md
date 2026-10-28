@@ -13,6 +13,7 @@ cd synthetic-data-generation/sdg
 .venv/bin/python scripts/run_pipeline.py --humans-root ../output/humans/run-20261019-200423
 .venv/bin/python scripts/run_pipeline.py --projections PA,RLAT
 .venv/bin/python scripts/run_pipeline.py --keep-open             # GUI stays open after the last visit
+.venv/bin/python scripts/run_pipeline.py --no-overlay            # clean RGB images (annotation JSON still written)
 .venv/bin/python scripts/run_pipeline.py --set sequence.idle_s.outside=4 --set poses.timing.fov_on_s=2
 .venv/bin/python scripts/run_pipeline.py -v                      # with Isaac's own console output
 ```

@@ -17,8 +17,9 @@ Third pipeline of the X-ray room digital twin. It takes the synthetic patients f
 Isaac Sim's own **behavior system** (`omni.anim.behavior`, Isaac Sim 6.x) produces the motion, so walking, turning and
 reaching look natural:
 
-* NVIDIA's human motion library is **retargeted at runtime onto the MPFB rig** that every synthetic human shares,
-  using one tag map (`configs/retarget_mpfb.yaml`). The same animation therefore works on every model.
+* NVIDIA's human motion library is **retargeted at runtime onto each human's rig**: the Z-Anatomy anatomical rig of
+  current humans (`configs/retarget_zanatomy.yaml`) or the MPFB rig of older ones (`configs/retarget_mpfb.yaml`),
+  picked by `<id>.json → skeleton.rig`. The same animation therefore works on every model.
 * Walking uses NavMesh path finding along the room's patient route.
 * Turns are idles with a facing direction, so the patient turns in place with steps.
 * **Hands-on-hip** and **hands-on-head** are behavior-system **custom actions**: pose clips generated at run time on
@@ -28,6 +29,10 @@ reaching look natural:
 Every visit is **captured** from the room cameras (RGB and depth, `capture.fps` images per second, default 2), into
 `run-<timestamp>/SD.xxxxx/<EXAM>/<CAMERA>/RGB`, `/Depth` and `/Depth_Preview` ([10](docs/10_capture.md)). The side-on D455 cameras near the X-ray
 machine are split between patients (`LEFT 50 % / RIGHT 50 %`, balanced across runs).
+Every captured frame also gets `annotations/<frame>.json`: the height in cm above the floor of each vertebra (C1–L5),
+the hips (greater trochanter) and the shoulders (acromion), read from the animated skeleton. The same points are
+**drawn into the RGB images** by default, so those images are not clean. `--no-overlay` keeps them clean
+([10.5](docs/10_capture.md#105-anatomy-annotations)).
 
 No scene file is written: Isaac builds the stage in memory from the room and human USDs. The record of a visit is a
 `timeline.txt` with a timestamp for every patient action.
@@ -37,7 +42,7 @@ No scene file is written: Isaac builds the stage in memory from the room and hum
 | Item | Version |
 |---|---|
 | Isaac Sim | 6.2 (tested `6.2.0-rc.14`), path in `configs/isaac.yaml → root` |
-| Python (host) | ≥ 3.10 with `pyyaml` (`usd-core` and `pytest` only for the tests). The animation itself runs in Isaac Sim's own Python (`python.sh`), started by the pipeline |
+| Python (host) | ≥ 3.10 with `pyyaml` and `usd-core` (annotation points of the humans; `pillow` and `pytest` only for the tests). The animation itself runs in Isaac Sim's own Python (`python.sh`), started by the pipeline |
 | Network | the motion library is loaded from NVIDIA's content server (`isaac.motion_library`); point the setting at a local copy to run offline |
 | Inputs | at least one finished humans run (`output/humans/run-*`) and one rooms run (`output/rooms/run-*`) |
 
@@ -95,6 +100,7 @@ output/sdg/
         └── CHEST/                    one folder per exam (later SPINE/)
             ├── timeline.txt          one line per patient action
             ├── frames.csv            captured frame -> simulated time, step, FOV light
+            ├── annotations/000001.json …   vertebra / hip / shoulder heights (cm) per captured frame
             └── FAR_LEFT/{RGB,Depth,Depth_Preview}/ …   one folder per recorded camera
 ```
 
@@ -129,7 +135,10 @@ The `t=` value is simulation time since the patient was loaded. The first column
 | `configs/sequence.yaml` | spawn distance outside, walk speed, idle time at each point, task timeout, arrival tolerance, FOV light (colour, intensity, cone) |
 | `configs/poses.yaml` | projections (facing: detector / left / right / tube, arm pose), arm poses (anchor joint, wrist position, elbow / finger / palm direction), timings (turn, arms up, settle, FOV on 1 s, hold, arms down) |
 | `configs/isaac.yaml` | Isaac Sim root, headless, real time, keep open, fps, timeouts, motion library URL, extensions, NavMesh margin |
-| `configs/retarget_mpfb.yaml` | MPFB joint → behavior "Human" rig tag map |
+| `configs/retarget_zanatomy.yaml` | Z-Anatomy joint → behavior "Human" rig tag map (current humans) |
+| `configs/retarget_mpfb.yaml` | MPFB joint → behavior "Human" rig tag map (older / MPFB-rig humans) |
+| `configs/capture.yaml` | cameras, streams, fps of the image capture |
+| `configs/annotations.yaml` | per-frame vertebra / hip / shoulder heights; overlay in the RGB images (`overlay.enabled`) |
 
 **Adding the spine exams later** needs only configuration: define the projections in `poses.yaml` (for example
 `T_PA`, `T_LLAT`, `L_PA` with their facing and arm poses), then add `SPINE: [T_PA, T_LLAT, T_RLAT, L_PA, L_LLAT, L_RLAT]`
@@ -165,7 +174,7 @@ to `run.yaml → exams`. Each human's SD then gets a `SPINE/timeline.txt` next t
 |---|---|
 | `/World/Room` | room reference. Detector and tube are set to the patient's T7 height (`room/isaac/compose_scene.py: compose_into`) |
 | `/World/HumanMotionLibrary` | NVIDIA motion library (payload) |
-| `/World/Patients/<id>` | the human (payload), placed at the start point outside. An identity joint `SkelOrigin` is inserted above MPFB's `root` (pelvis): the retargeter needs `Hips` below a root joint, and the behavior system needs the root at the origin. The name must not be `Root`, because the retargeter compares names case-insensitively and then rejects the skeleton. `BehaviorAgentAPI` is applied, and the rig is retargeted to "Human" with the MPFB tag map and explicit axes (Z up, facing −Y; auto-detection gets MPFB wrong) |
+| `/World/Patients/<id>` | the human (payload), placed at the start point outside. Current humans have `SkelOrigin` at the top of their skeleton; for older MPFB humans an identity joint `SkelOrigin` is inserted above MPFB's `root` (pelvis): the retargeter needs `Hips` below a root joint, and the behavior system needs the root at the origin. The name must not be `Root`, because the retargeter compares names case-insensitively and then rejects the skeleton. `BehaviorAgentAPI` is applied, and the rig is retargeted to "Human" with the tag map of its rig and explicit axes (Z up, facing −Y; auto-detection gets them wrong) |
 | `/World/NavMeshVolume`, `/World/OutsideFloor` | NavMesh over the suite plus a margin, so the patient can stand and walk outside the entrance. It uses a patient-sized agent (radius 0.12–0.30 m, height 1.8 m, 5 cm sampling). Isaac's defaults (0.5 m radius, 20 cm voxels) close the 0.86 m doors and the narrow check-in room. These are this stage's `navmeshSettings`: your Isaac preferences are not changed |
 | `…/TubeHead/FOVLight` | `RectLight` + `ShapingAPI` at the collimator light window, aimed along the beam (TubeHead +Y; a test checks this against the room's beam axis). It is visible only during the FOV-on time |
 
@@ -195,7 +204,7 @@ the patient) is printed as a warning. `--set isaac.debug_hands=true` prints the 
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest -q tests     # config, run discovery, visit plan, pose clips, SD/timeline, retarget joints
+.venv/bin/python -m pytest -q tests     # config, run discovery, visit plan, pose clips, SD/timeline, retarget maps, annotations
 ```
 
 ## Limits
